@@ -18,27 +18,27 @@ public class ReservationController { // 定義予約管理コントローラー�
   private final ReservationService reservationService; // 保存予約業務サービス依赖。
   private final RoomService roomService; // 保存部屋業務サービス依赖。
 
-  public ReservationController(ReservationService reservationService, RoomService roomService) { // 定義构造メソッド用依赖注入。
+  public ReservationController(ReservationService reservationService, RoomService roomService) { // 定義構築メソッド用依赖注入。
     this.reservationService = reservationService; // 保存注入の予約業務サービス。
     this.roomService = roomService; // 保存注入の部屋業務サービス。
   }
 
   @GetMapping("/reservations") // を予約管理パス映射へページ処理メソッド。
   public String reservations(@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "1") int cancelledPage, @RequestParam(defaultValue = "1") int checkedOutPage, Model model) { // 定義予約管理ページ処理メソッド。
-    int safePage = Math.max(1, page); // 兜底有効予約页码。
-    int safeCancelledPage = Math.max(1, cancelledPage); // 兜底取消予約页码。
-    int safeCheckedOutPage = Math.max(1, checkedOutPage); // 兜底退房予約页码。
-    int pageSize = 5; // 定義一页テーブル示の最大条数。
-    reservationService.syncDueCheckouts(); // 先同步へ期退房状態。
-    model.addAttribute("reservations", reservationService.findRecentPage(safePage, pageSize)); // 向ページ传递分页後の近期予約一覧。
-    model.addAttribute("cancelledReservations", reservationService.findCancelledPage(safeCancelledPage, pageSize)); // 向ページ传递分页後の取消予約一覧。
-    model.addAttribute("checkedOutReservations", reservationService.findCheckedOutPage(safeCheckedOutPage, pageSize)); // 向ページ传递分页後の退房予約一覧。
-    model.addAttribute("reservationPage", safePage); // 向ページ传递現在有効予約页码。
+    int safePage = Math.max(1, page); // 兜底有効予約ページ番号。
+    int safeCancelledPage = Math.max(1, cancelledPage); // 兜底取消予約ページ番号。
+    int safeCheckedOutPage = Math.max(1, checkedOutPage); // 兜底チェックアウト予約ページ番号。
+    int pageSize = 5; // 定義一页表示の最大条数。
+    reservationService.syncDueCheckouts(); // 先同期へ期チェックアウト状態。
+    model.addAttribute("reservations", reservationService.findRecentPage(safePage, pageSize)); // 向ページ传递ページング後の近期予約一覧。
+    model.addAttribute("cancelledReservations", reservationService.findCancelledPage(safeCancelledPage, pageSize)); // 向ページ传递ページング後の取消予約一覧。
+    model.addAttribute("checkedOutReservations", reservationService.findCheckedOutPage(safeCheckedOutPage, pageSize)); // 向ページ传递ページング後のチェックアウト予約一覧。
+    model.addAttribute("reservationPage", safePage); // 向ページ传递現在有効予約ページ番号。
     model.addAttribute("reservationTotalPages", Math.max(1, (reservationService.countRecent() + pageSize - 1) / pageSize)); // 向ページ传递有効予約总页数。
-    model.addAttribute("cancelledPage", safeCancelledPage); // 向ページ传递現在取消予約页码。
+    model.addAttribute("cancelledPage", safeCancelledPage); // 向ページ传递現在取消予約ページ番号。
     model.addAttribute("cancelledTotalPages", Math.max(1, (reservationService.countCancelled() + pageSize - 1) / pageSize)); // 向ページ传递取消予約总页数。
-    model.addAttribute("checkedOutPage", safeCheckedOutPage); // 向ページ传递現在退房予約页码。
-    model.addAttribute("checkedOutTotalPages", Math.max(1, (reservationService.countCheckedOut() + pageSize - 1) / pageSize)); // 向ページ传递退房予約总页数。
+    model.addAttribute("checkedOutPage", safeCheckedOutPage); // 向ページ传递現在チェックアウト予約ページ番号。
+    model.addAttribute("checkedOutTotalPages", Math.max(1, (reservationService.countCheckedOut() + pageSize - 1) / pageSize)); // 向ページ传递チェックアウト予約总页数。
     model.addAttribute("rooms", roomService.findBookable()); // 向ページ传递空室且可能予約の部屋一覧。
     model.addAttribute("reservation", new Reservation()); // 向ページ传递新規登録予約フォームオブジェクト。
     return "reservations"; // 返却 reservations.html 模板。
@@ -46,19 +46,19 @@ public class ReservationController { // 定義予約管理コントローラー�
 
   @PostMapping("/reservations") // を新規登録予約フォーム送信パス映射へ処理メソッド。
   public String create(@ModelAttribute Reservation reservation, @RequestParam(required = false, defaultValue = "false") boolean noPhoneInfo, @RequestParam(required = false, defaultValue = "false") boolean noEmailInfo, @RequestParam(required = false) List<String> companionNames, @RequestParam(required = false) List<String> companionKanas, @RequestParam(required = false) List<String> companionGenders, @RequestParam(required = false) List<Integer> companionAges, @RequestParam(required = false) List<String> companionPhones, RedirectAttributes redirectAttributes) { // 定義新規登録予約処理メソッド。
-  try { // 捕获業務検証异常と转成ページメッセージ。
+  try { // 捕获業務検証例外と转成ページメッセージ。
       reservationService.create(reservation, noPhoneInfo && noEmailInfo, companionNames, companionKanas, companionGenders, companionAges, companionPhones); // 呼び出し業務サービス新規登録予約と同行者。
       redirectAttributes.addFlashAttribute("message", "予約を登録しました。"); // 設定新規登録成功メッセージ。
-    } catch (IllegalArgumentException ex) { // 捕获フォーム検証异常。
+    } catch (IllegalArgumentException ex) { // 捕获フォーム検証例外。
       redirectAttributes.addFlashAttribute("error", ex.getMessage()); // 設定エラーメッセージメッセージ。
     }
     return "redirect:/reservations"; // リダイレクト回予約管理页避免重複送信。
   }
 
-  @PostMapping("/reservations/{id}/payment") // を付款状態更新パス映射へ処理メソッド。
-  public String updatePayment(@PathVariable Integer id, @RequestParam String paymentStatus, RedirectAttributes redirectAttributes) { // 定義付款状態更新処理メソッド。
-    reservationService.updatePaymentStatus(id, paymentStatus); // 呼び出し業務サービス更新付款状態。
-    redirectAttributes.addFlashAttribute("message", "支払い状況を更新しました。"); // 設定付款状態更新成功メッセージ。
+  @PostMapping("/reservations/{id}/payment") // を支払い状態更新パス映射へ処理メソッド。
+  public String updatePayment(@PathVariable Integer id, @RequestParam String paymentStatus, RedirectAttributes redirectAttributes) { // 定義支払い状態更新処理メソッド。
+    reservationService.updatePaymentStatus(id, paymentStatus); // 呼び出し業務サービス更新支払い状態。
+    redirectAttributes.addFlashAttribute("message", "支払い状況を更新しました。"); // 設定支払い状態更新成功メッセージ。
     return "redirect:/reservations"; // リダイレクト回予約管理页。
   }
 

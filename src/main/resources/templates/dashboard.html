@@ -23,28 +23,28 @@
     <p>宿泊予約、支払い状況、部屋割りを確認します。</p> <!-- 表示予約一覧機能要約。 -->
   </section> <!-- 終了ホーム概览領域。 -->
   <section class="metrics"> <!-- 定義指標卡片領域。 -->
-    <article class="metric"> <!-- 定義部屋总数指標卡片。 -->
+    <article class="metric"> <!-- 定義部屋総数指標卡片。 -->
       <span>部屋数</span> <!-- 表示指標名称。 -->
-      <strong th:text="${roomCount}">0</strong> <!-- 表示部屋总数。 -->
-    </article> <!-- 終了部屋总数指標卡片。 -->
-    <article class="metric"> <!-- 定義空房数量指標卡片。 -->
+      <strong th:text="${roomCount}">0</strong> <!-- 表示部屋総数。 -->
+    </article> <!-- 終了部屋総数指標卡片。 -->
+    <article class="metric"> <!-- 定義空室件数指標卡片。 -->
       <span>空室</span> <!-- 表示指標名称。 -->
-      <strong th:text="${vacantCount}">0</strong> <!-- 表示空房数量。 -->
-    </article> <!-- 終了空房数量指標卡片。 -->
+      <strong th:text="${vacantCount}">0</strong> <!-- 表示空室件数。 -->
+    </article> <!-- 終了空室件数指標卡片。 -->
     <article class="metric"> <!-- 定義有効予約指標卡片。 -->
       <span>有効予約</span> <!-- 表示指標名称。 -->
-      <strong th:text="${bookedCount}">0</strong> <!-- 表示有効予約数量。 -->
+      <strong th:text="${bookedCount}">0</strong> <!-- 表示有効予約件数。 -->
     </article> <!-- 終了有効予約指標卡片。 -->
   </section> <!-- 終了指標卡片領域。 -->
   <section class="panel"> <!-- 定義近期予約面板。 -->
-    <div class="section-title pager-title"> <!-- 定義面板標題行と分页領域。 -->
+    <div class="section-title pager-title"> <!-- 定義面板標題行とページング領域。 -->
       <h2>予約一覧</h2> <!-- 表示予約一覧標題。 -->
-      <div class="pager"> <!-- 定義ホーム予約分页ナビゲーション。 -->
-        <a class="pager-link" th:if="${reservationPage > 1}" th:href="@{/dashboard(page=${reservationPage - 1})}">前へ</a> <!-- 跳转へ上一页。 -->
-        <span class="pager-state" th:text="${reservationPage + ' / ' + reservationTotalPages}">1 / 1</span> <!-- 表示現在页码と总页数。 -->
-        <a class="pager-link" th:if="${reservationPage < reservationTotalPages}" th:href="@{/dashboard(page=${reservationPage + 1})}">次へ</a> <!-- 跳转へ下一页。 -->
-        <a class="button" th:href="@{/reservations}">予約登録</a> <!-- 提供跳转予約登记のボタン。 -->
-      </div> <!-- 終了ホーム予約分页ナビゲーション。 -->
+      <div class="pager"> <!-- 定義ホーム予約ページングナビゲーション。 -->
+        <a class="pager-link" th:if="${reservationPage > 1}" th:href="@{/dashboard(page=${reservationPage - 1})}">前へ</a> <!-- 遷移へ上一页。 -->
+        <span class="pager-state" th:text="${reservationPage + ' / ' + reservationTotalPages}">1 / 1</span> <!-- 表示現在ページ番号と总页数。 -->
+        <a class="pager-link" th:if="${reservationPage < reservationTotalPages}" th:href="@{/dashboard(page=${reservationPage + 1})}">次へ</a> <!-- 遷移へ下一页。 -->
+        <a class="button" th:href="@{/reservations}">予約登録</a> <!-- 提供遷移予約登记のボタン。 -->
+      </div> <!-- 終了ホーム予約ページングナビゲーション。 -->
     </div> <!-- 終了面板標題行。 -->
     <table class="table reservation-table"> <!-- 定義近期予約テーブルと使用与予約页一致の紧凑様式。 -->
       <colgroup> <!-- 定義近期予約列幅。 -->
@@ -69,25 +69,25 @@
         <th>予約形式</th> <!-- 表示予約形式列名。 -->
         <th>同行者</th> <!-- 表示同行者列名。 -->
         <th>日程</th> <!-- 表示日程列名。 -->
-        <th>支払い</th> <!-- 表示付款状態列名。 -->
+        <th>支払い</th> <!-- 表示支払い状態列名。 -->
         <th>予約状態</th> <!-- 表示予約状態列名。 -->
       </tr> <!-- 終了ヘッダー行。 -->
       </thead> <!-- 終了ヘッダー。 -->
       <tbody> <!-- 定義テーブルコンテンツ。 -->
-      <tr th:each="reservation : ${recentReservations}"> <!-- 反復近期予約记录。 -->
+      <tr th:each="reservation : ${recentReservations}"> <!-- 反復近期予約レコード。 -->
         <td th:text="${reservation.reservationNo}">RSV</td> <!-- 表示予約番号。 -->
         <td th:text="${reservation.roomNumber + ' ' + reservation.roomName}">101 桜の間</td> <!-- 部屋番号を表示と名称。 -->
-        <td th:text="${reservation.guestName + ' / ' + (reservation.guestGender == null || reservation.guestGender == '' ? '性別未入力' : reservation.guestGender) + ' / ' + (reservation.guestAge == null ? '年齢未入力' : reservation.guestAge + '歳')}">山田太郎 / 男性 / 30歳</td> <!-- 表示予約宿泊者姓名、性别と年龄。 -->
+        <td th:text="${reservation.guestName + ' / ' + (reservation.guestGender == null || reservation.guestGender == '' ? '性別未入力' : reservation.guestGender) + ' / ' + (reservation.guestAge == null ? '年齢未入力' : reservation.guestAge + '歳')}">山田太郎 / 男性 / 30歳</td> <!-- 表示予約宿泊者氏名、性別と年齢。 -->
         <td th:text="${reservation.guestCount + '名'}">2名</td> <!-- 表示予約宿泊者人数。 -->
         <td th:text="${(reservation.guestPhone == null || reservation.guestPhone == '' ? '電話未入力' : reservation.guestPhone) + ' / ' + (reservation.guestEmail == null || reservation.guestEmail == '' ? 'メール未入力' : reservation.guestEmail)}">電話 / メール</td> <!-- 表示予約宿泊者連絡方式。 -->
         <td th:text="${reservation.reservationForm == null || reservation.reservationForm == '' ? '公式' : reservation.reservationForm}">公式</td> <!-- 表示予約形式。 -->
-        <td th:text="${reservation.companionSummary == null || reservation.companionSummary == '' ? '同行者なし' : reservation.companionSummary}">同行者なし</td> <!-- 表示同行者信息。 -->
+        <td th:text="${reservation.companionSummary == null || reservation.companionSummary == '' ? '同行者なし' : reservation.companionSummary}">同行者なし</td> <!-- 表示同行者情報。 -->
         <td th:text="${reservation.checkInDate + ' - ' + reservation.checkOutDate}">2026-07-01 - 2026-07-02</td> <!-- 表示宿泊へチェックアウト日付。 -->
-        <td><span class="tag" th:text="${reservation.paymentStatusLabel}">未払い</span></td> <!-- 表示日文付款状態標签。 -->
-        <td><span class="tag" th:text="${reservation.reservationStatusLabel}">予約済</span></td> <!-- 表示日文予約状態標签。 -->
-      </tr> <!-- 終了予約记录行。 -->
-      <tr th:if="${#lists.isEmpty(recentReservations)}"> <!-- で没有予約时表示空状態行。 -->
-        <td colspan="10" class="empty">予約データがありません。</td> <!-- 表示没有予約データのメッセージ。 -->
+        <td><span class="tag" th:text="${reservation.paymentStatusLabel}">未払い</span></td> <!-- 表示日文支払い状態ラベル。 -->
+        <td><span class="tag" th:text="${reservation.reservationStatusLabel}">予約済</span></td> <!-- 表示日文予約状態ラベル。 -->
+      </tr> <!-- 終了予約レコード行。 -->
+      <tr th:if="${#lists.isEmpty(recentReservations)}"> <!-- でなし予約时表示空状態行。 -->
+        <td colspan="10" class="empty">予約データがありません。</td> <!-- 表示なし予約データのメッセージ。 -->
       </tr> <!-- 終了空状態行。 -->
       </tbody> <!-- 終了テーブルコンテンツ。 -->
     </table> <!-- 終了近期予約テーブル。 -->

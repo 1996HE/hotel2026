@@ -68,13 +68,13 @@
             </div> <!-- 終了状態ドロップダウン框分组コンテナ。 -->
             <button type="submit">更新</button> <!-- 送信状態更新フォーム。 -->
           </form> <!-- 部屋状態更新フォームを終了。 -->
-        </td> <!-- 終了状態更新单元格。 -->
+        </td> <!-- 終了状態更新セル。 -->
         <td> <!-- 部屋削除セルを定義。 -->
           <form class="inline-form" th:action="@{/rooms/{id}/delete(id=${roomItem.id})}" method="post"> <!-- 部屋削除フォームを定義。 -->
             <button type="submit" class="danger">削除</button> <!-- 送信部屋削除操作。 -->
           </form> <!-- 部屋削除フォームを終了。 -->
-        </td> <!-- 終了部屋削除单元格。 -->
-      </tr> <!-- 終了部屋记录行。 -->
+        </td> <!-- 終了部屋削除セル。 -->
+      </tr> <!-- 終了部屋レコード行。 -->
       </tbody> <!-- 終了部屋テーブルコンテンツ。 -->
     </table> <!-- 終了部屋一覧テーブル。 -->
     </div> <!-- 終了部屋一覧横スクロールコンテナ。 -->
@@ -98,7 +98,7 @@
         <td th:text="${roomItem.capacity}">2</td> <!-- 定員を表示。 -->
         <td th:text="${'¥' + roomItem.basePricePerPerson}">¥8800</td> <!-- 基本単価を表示。 -->
         <td th:text="${roomItem.updatedAt}">更新日時</td> <!-- 削除日時を表示。 -->
-      </tr> <!-- 終了削除済み部屋记录行。 -->
+      </tr> <!-- 終了削除済み部屋レコード行。 -->
       <tr th:if="${#lists.isEmpty(deletedRooms)}"><td colspan="6" class="empty">削除済み部屋はありません。</td></tr> <!-- 削除済み部屋がない旨を表示。 -->
       </tbody> <!-- 終了削除済み部屋テーブルコンテンツ。 -->
     </table> <!-- 終了削除済み部屋一覧テーブル。 -->

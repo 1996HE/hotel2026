@@ -11,7 +11,7 @@ import org.springframework.util.StringUtils; // 読み込み字符串検証工�
 public class RoomService { // 定義部屋相关業務逻辑。
   private final RoomMapper roomMapper; // 保存部屋データ访问依赖。
 
-  public RoomService(RoomMapper roomMapper) { // 定義构造メソッド用依赖注入。
+  public RoomService(RoomMapper roomMapper) { // 定義構築メソッド用依赖注入。
     this.roomMapper = roomMapper; // 保存注入の部屋 Mapper。
   }
 
@@ -23,20 +23,20 @@ public class RoomService { // 定義部屋相关業務逻辑。
     return roomMapper.findInactive(); // 呼び出し Mapper 返却完了削除部屋一覧。
   }
 
-  public List<Room> findActive() { // 定義検索启用部屋の業務メソッド。
-    return roomMapper.findActive(); // 呼び出し Mapper 返却启用部屋一覧。
+  public List<Room> findActive() { // 定義検索有効部屋の業務メソッド。
+    return roomMapper.findActive(); // 呼び出し Mapper 返却有効部屋一覧。
   }
 
   public List<Room> findBookable() { // 定義検索可能予約部屋の業務メソッド。
-    return roomMapper.findBookable(); // 呼び出し Mapper 返却启用且空室の部屋一覧。
+    return roomMapper.findBookable(); // 呼び出し Mapper 返却有効且空室の部屋一覧。
   }
 
-  public Room findById(Integer id) { // 定義按番号検索部屋の業務メソッド。
+  public Room findById(Integer id) { // 定義に番号検索部屋の業務メソッド。
     return roomMapper.findById(id); // 呼び出し Mapper 返却单个部屋。
   }
 
   public void create(Room room) { // 定義新規登録部屋の業務メソッド。
-    if (!StringUtils.hasText(room.getRoomNumber())) { throw new IllegalArgumentException("房間番号を入力してください。"); } // 検証部屋番号非能に空。
+    if (!StringUtils.hasText(room.getRoomNumber())) { throw new IllegalArgumentException("部屋番号を入力してください。"); } // 検証部屋番号非能に空。
     if (!StringUtils.hasText(room.getRoomName())) { throw new IllegalArgumentException("部屋名を入力してください。"); } // 検証部屋名称非能に空。
     if (room.getCapacity() == null || room.getCapacity() < 1) { throw new IllegalArgumentException("定員は1名以上にしてください。"); } // 検証宿泊人数上限。
     if (room.getBasePricePerPerson() == null) { room.setBasePricePerPerson(BigDecimal.ZERO); } // に缺失の基本料金設定初期値值。
@@ -44,11 +44,11 @@ public class RoomService { // 定義部屋相关業務逻辑。
     if (room.getPrivateBath() == null) { room.setPrivateBath(false); } // に缺失の独立浴室標记設定初期値值。
     if (!StringUtils.hasText(room.getOccupancyStatus())) { room.setOccupancyStatus("vacant"); } // に缺失の宿泊状態設定初期値值。
     if (!StringUtils.hasText(room.getCleaningStatus())) { room.setCleaningStatus("cleaned"); } // に缺失の清掃状態設定初期値值。
-    if (room.getActive() == null) { room.setActive(true); } // に缺失の启用状態設定初期値值。
+    if (room.getActive() == null) { room.setActive(true); } // に缺失の有効状態設定初期値值。
     Room existingRoom = roomMapper.findByRoomNumberIncludingInactive(room.getRoomNumber()); // 検索是否完了有相同部屋番号。
     if (existingRoom != null && Boolean.TRUE.equals(existingRoom.getActive())) { throw new IllegalArgumentException("部屋番号が重複しています。"); } // 阻止有効部屋番号重複。
-    if (existingRoom != null) { roomMapper.reactivate(room); return; } // 完了削除の同番号部屋直接恢复と更新。
-    roomMapper.insert(room); // 呼び出し Mapper 書き込み部屋记录。
+    if (existingRoom != null) { roomMapper.reactivate(room); return; } // 完了削除の同番号部屋直接復元と更新。
+    roomMapper.insert(room); // 呼び出し Mapper 書き込み部屋レコード。
   }
 
   public void updateStatuses(Integer id, String occupancyStatus, String cleaningStatus) { // 定義更新部屋状態の業務メソッド。
@@ -59,11 +59,11 @@ public class RoomService { // 定義部屋相关業務逻辑。
     roomMapper.deactivate(id); // 呼び出し Mapper を部屋软削除に無効状態。
   }
 
-  public int countAll() { // 定義集計全部部屋数量の業務メソッド。
-    return roomMapper.countAll(); // 呼び出し Mapper 返却部屋总数。
+  public int countAll() { // 定義集計全部部屋件数の業務メソッド。
+    return roomMapper.countAll(); // 呼び出し Mapper 返却部屋総数。
   }
 
-  public int countVacant() { // 定義集計空房数量の業務メソッド。
-    return roomMapper.countVacant(); // 呼び出し Mapper 返却空房数量。
+  public int countVacant() { // 定義集計空室件数の業務メソッド。
+    return roomMapper.countVacant(); // 呼び出し Mapper 返却空室件数。
   }
 }

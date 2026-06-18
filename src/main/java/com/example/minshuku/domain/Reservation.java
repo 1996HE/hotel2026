@@ -1,7 +1,7 @@
 package com.example.minshuku.domain; // 宣言予約エンティティ所属のドメインモデルパッケージ。
 
 import java.math.BigDecimal; // 読み込み金額フィールド使用の高精度数字型。
-import java.time.LocalDate; // 読み込み宿泊と退房日付使用の本地日付型。
+import java.time.LocalDate; // 読み込み宿泊とチェックアウト日付使用のローカル日付型。
 import java.time.OffsetDateTime; // 読み込みデータベースタイムスタンプフィールド使用の時間型。
 
 public class Reservation { // 定義住宿予約エンティティ，対応 reservations テーブル。
@@ -11,21 +11,21 @@ public class Reservation { // 定義住宿予約エンティティ，対応 rese
   private String roomNumber; // 保存結合検索得への部屋番号。
   private String roomName; // 保存結合検索得への部屋名称。
   private LocalDate checkInDate; // 保存宿泊日付，パッケージ含当天。
-  private LocalDate checkOutDate; // 保存退房日付，非パッケージ含当天。
-  private String guestName; // 保存住客姓名。
-  private String guestKana; // 保存住客假名读音。
-  private String guestGender; // 保存予約客户性别。
-  private Integer guestAge; // 保存予約客户年龄。
-  private String guestPhone; // 保存住客电话。
-  private String guestEmail; // 保存住客邮箱。
+  private LocalDate checkOutDate; // 保存チェックアウト日付，非パッケージ含当天。
+  private String guestName; // 保存宿泊者氏名。
+  private String guestKana; // 保存宿泊者仮名読み。
+  private String guestGender; // 保存予約宿泊者性別。
+  private Integer guestAge; // 保存予約宿泊者年齢。
+  private String guestPhone; // 保存宿泊者電話。
+  private String guestEmail; // 保存宿泊者メール。
   private Integer guestCount; // 保存宿泊人数。
-  private String reservationForm; // 保存予約形式テーブル示值。
-  private String paymentStatus; // 保存付款状態，例如 unpaid、paid。
+  private String reservationForm; // 保存予約形式表示值。
+  private String paymentStatus; // 保存支払い状態，例如 unpaid、paid。
   private String reservationStatus; // 保存予約状態，例如 booked、cancelled。
   private String roomCleaningStatus; // 保存結合検索得への部屋清掃状態。
-  private BigDecimal totalAmount; // 保存预计住宿总金額。
+  private BigDecimal totalAmount; // 保存予定住宿総金額。
   private String note; // 保存予約メモ。
-  private String companionSummary; // 保存同行者姓名、性别、年龄と联系方式摘要。
+  private String companionSummary; // 保存同行者氏名、性別、年齢と連絡先摘要。
   private OffsetDateTime createdAt; // 保存作成時間。
   private OffsetDateTime updatedAt; // 保存更新時間。
 
@@ -41,34 +41,34 @@ public class Reservation { // 定義住宿予約エンティティ，対応 rese
   public void setRoomName(String roomName) { this.roomName = roomName; } // 設定部屋名称。
   public LocalDate getCheckInDate() { return checkInDate; } // 返却宿泊日付。
   public void setCheckInDate(LocalDate checkInDate) { this.checkInDate = checkInDate; } // 設定宿泊日付。
-  public LocalDate getCheckOutDate() { return checkOutDate; } // 返却退房日付。
-  public void setCheckOutDate(LocalDate checkOutDate) { this.checkOutDate = checkOutDate; } // 設定退房日付。
-  public String getGuestName() { return guestName; } // 返却住客姓名。
-  public void setGuestName(String guestName) { this.guestName = guestName; } // 設定住客姓名。
-  public String getGuestKana() { return guestKana; } // 返却住客假名读音。
-  public void setGuestKana(String guestKana) { this.guestKana = guestKana; } // 設定住客假名读音。
-  public String getGuestGender() { return guestGender; } // 返却予約客户性别。
-  public void setGuestGender(String guestGender) { this.guestGender = guestGender; } // 設定予約客户性别。
-  public Integer getGuestAge() { return guestAge; } // 返却予約客户年龄。
-  public void setGuestAge(Integer guestAge) { this.guestAge = guestAge; } // 設定予約客户年龄。
-  public String getGuestPhone() { return guestPhone; } // 返却住客电话。
-  public void setGuestPhone(String guestPhone) { this.guestPhone = guestPhone; } // 設定住客电话。
-  public String getGuestEmail() { return guestEmail; } // 返却住客邮箱。
-  public void setGuestEmail(String guestEmail) { this.guestEmail = guestEmail; } // 設定住客邮箱。
+  public LocalDate getCheckOutDate() { return checkOutDate; } // 返却チェックアウト日付。
+  public void setCheckOutDate(LocalDate checkOutDate) { this.checkOutDate = checkOutDate; } // 設定チェックアウト日付。
+  public String getGuestName() { return guestName; } // 返却住客氏名。
+  public void setGuestName(String guestName) { this.guestName = guestName; } // 設定住客氏名。
+  public String getGuestKana() { return guestKana; } // 返却住客仮名読み。
+  public void setGuestKana(String guestKana) { this.guestKana = guestKana; } // 設定住客仮名読み。
+  public String getGuestGender() { return guestGender; } // 返却予約宿泊者性別。
+  public void setGuestGender(String guestGender) { this.guestGender = guestGender; } // 設定予約宿泊者性別。
+  public Integer getGuestAge() { return guestAge; } // 返却予約宿泊者年齢。
+  public void setGuestAge(Integer guestAge) { this.guestAge = guestAge; } // 設定予約宿泊者年齢。
+  public String getGuestPhone() { return guestPhone; } // 返却住客電話。
+  public void setGuestPhone(String guestPhone) { this.guestPhone = guestPhone; } // 設定住客電話。
+  public String getGuestEmail() { return guestEmail; } // 返却住客メール。
+  public void setGuestEmail(String guestEmail) { this.guestEmail = guestEmail; } // 設定住客メール。
   public Integer getGuestCount() { return guestCount; } // 返却宿泊人数。
   public void setGuestCount(Integer guestCount) { this.guestCount = guestCount; } // 設定宿泊人数。
-  public String getReservationForm() { return reservationForm; } // 返却予約形式テーブル示值。
-  public void setReservationForm(String reservationForm) { this.reservationForm = reservationForm; } // 設定予約形式テーブル示值。
-  public String getPaymentStatus() { return paymentStatus; } // 返却付款状態。
-  public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; } // 設定付款状態。
+  public String getReservationForm() { return reservationForm; } // 返却予約形式表示值。
+  public void setReservationForm(String reservationForm) { this.reservationForm = reservationForm; } // 設定予約形式表示值。
+  public String getPaymentStatus() { return paymentStatus; } // 返却支払い状態。
+  public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; } // 設定支払い状態。
   public String getReservationStatus() { return reservationStatus; } // 返却予約状態。
   public void setReservationStatus(String reservationStatus) { this.reservationStatus = reservationStatus; } // 設定予約状態。
-  public String getReservationStatusLabel() { return switch (reservationStatus) { case "cancelled" -> "取消済"; case "checked_out" -> "退房完了待清掃"; default -> "予約済"; }; } // 返却用画面テーブル示の予約状態標签。
-  public String getPaymentStatusLabel() { return "paid".equals(paymentStatus) ? "支払済" : "未払い"; } // 返却用画面テーブル示の支付状態標签。
+  public String getReservationStatusLabel() { return switch (reservationStatus) { case "cancelled" -> "取消済"; case "checked_out" -> "チェックアウト完了待清掃"; default -> "予約済"; }; } // 返却用画面表示の予約状態ラベル。
+  public String getPaymentStatusLabel() { return "paid".equals(paymentStatus) ? "支払済" : "未払い"; } // 返却用画面表示の支付状態ラベル。
   public String getRoomCleaningStatus() { return roomCleaningStatus; } // 返却結合得への部屋清掃状態。
   public void setRoomCleaningStatus(String roomCleaningStatus) { this.roomCleaningStatus = roomCleaningStatus; } // 設定結合得への部屋清掃状態。
-  public BigDecimal getTotalAmount() { return totalAmount; } // 返却预计总金額。
-  public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; } // 設定预计总金額。
+  public BigDecimal getTotalAmount() { return totalAmount; } // 返却予定総金額。
+  public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; } // 設定予定総金額。
   public String getNote() { return note; } // 返却予約メモ。
   public void setNote(String note) { this.note = note; } // 設定予約メモ。
   public String getCompanionSummary() { return companionSummary; } // 返却同行者摘要。

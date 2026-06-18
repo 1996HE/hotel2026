@@ -8,25 +8,25 @@ import org.springframework.web.bind.annotation.GetMapping; // 読み込み GET �
 import org.springframework.web.bind.annotation.RequestParam; // 読み込みリクエストパラメータ绑定アノテーション。
 
 @Controller // 標记このクラス処理 Thymeleaf ページリクエスト。
-public class DashboardController { // 定義システム首页コントローラー。
+public class DashboardController { // 定義システムトップページコントローラー。
   private final RoomService roomService; // 保存部屋業務サービス依赖。
   private final ReservationService reservationService; // 保存予約業務サービス依赖。
 
-  public DashboardController(RoomService roomService, ReservationService reservationService) { // 定義构造メソッド用依赖注入。
+  public DashboardController(RoomService roomService, ReservationService reservationService) { // 定義構築メソッド用依赖注入。
     this.roomService = roomService; // 保存注入の部屋業務サービス。
     this.reservationService = reservationService; // 保存注入の予約業務サービス。
   }
 
   @GetMapping({"/", "/dashboard"}) // を根パスと仪テーブル盘パス映射へ同一个ページ。
   public String dashboard(@RequestParam(defaultValue = "1") int page, Model model) { // 定義仪テーブル盘ページ処理メソッド。
-    int safePage = Math.max(1, page); // 兜底页码至少に 1。
-    int pageSize = 5; // 定義一页最多テーブル示 5 条予約。
-    reservationService.syncDueCheckouts(); // 先同步へ期退房状態，保证首页一覧与部屋状態一致。
-    model.addAttribute("roomCount", roomService.countAll()); // 向ページ传递部屋总数。
-    model.addAttribute("vacantCount", roomService.countVacant()); // 向ページ传递空房数量。
-    model.addAttribute("bookedCount", reservationService.countBooked()); // 向ページ传递有効予約数量。
-    model.addAttribute("recentReservations", reservationService.findRecentPage(safePage, pageSize)); // 向ページ传递近期予約分页一覧。
-    model.addAttribute("reservationPage", safePage); // 向ページ传递現在页码。
+    int safePage = Math.max(1, page); // 兜底ページ番号至少に 1。
+    int pageSize = 5; // 定義一页最多表示 5 条予約。
+    reservationService.syncDueCheckouts(); // 先同期へ期チェックアウト状態，保证トップページ一覧与部屋状態一致。
+    model.addAttribute("roomCount", roomService.countAll()); // 向ページ传递部屋総数。
+    model.addAttribute("vacantCount", roomService.countVacant()); // 向ページ传递空室件数。
+    model.addAttribute("bookedCount", reservationService.countBooked()); // 向ページ传递有効予約件数。
+    model.addAttribute("recentReservations", reservationService.findRecentPage(safePage, pageSize)); // 向ページ传递近期予約ページング一覧。
+    model.addAttribute("reservationPage", safePage); // 向ページ传递現在ページ番号。
     model.addAttribute("reservationTotalPages", Math.max(1, (reservationService.countRecent() + pageSize - 1) / pageSize)); // 向ページ传递总页数。
     return "dashboard"; // 返却 dashboard.html 模板。
   }

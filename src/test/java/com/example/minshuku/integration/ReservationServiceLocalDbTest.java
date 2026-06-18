@@ -83,14 +83,14 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport { // 実DBで予�
   }
 
   @Test // 正常系の自動チェックアウト同期を検証する。
-  void syncDueCheckoutsMovesReservationToCheckedOutAndRoomToNeedsCleaning() { // 期限到来予約が退房へ進むことを確認する。
-    Reservation reservation = baseReservation(spareRoomId, LocalDate.now().minusDays(2), LocalDate.now(), 2); // 今日退房の予約を作る。
+  void syncDueCheckoutsMovesReservationToCheckedOutAndRoomToNeedsCleaning() { // 期限到来予約がチェックアウトへ進むことを確認する。
+    Reservation reservation = baseReservation(spareRoomId, LocalDate.now().minusDays(2), LocalDate.now(), 2); // 今日チェックアウトの予約を作る。
     reservation.setGuestEmail("guest@example.com"); // メールを設定する。
     reservationService.create(reservation, false, List.of("同行者一"), List.of("ドウコウシャイチ"), List.of("男性"), List.of(31), List.of("090-1111-1111")); // 予約を登録する。
-    reservationService.syncDueCheckouts(); // 自動退房同期を実行する。
+    reservationService.syncDueCheckouts(); // 自動チェックアウト同期を実行する。
     Reservation updated = reservationMapper.findById(reservation.getId()); // 更新後の予約を取り出す。
     Room room = roomMapper.findById(spareRoomId); // 対応部屋を取り出す。
-    assertThat(updated.getReservationStatus()).isEqualTo("checked_out"); // 退房状態に変わることを確認する。
+    assertThat(updated.getReservationStatus()).isEqualTo("checked_out"); // チェックアウト状態に変わることを確認する。
     assertThat(room.getOccupancyStatus()).isEqualTo("vacant"); // 部屋が空室へ戻ることを確認する。
     assertThat(room.getCleaningStatus()).isEqualTo("needs_cleaning"); // 清掃待ちへ変わることを確認する。
   }
@@ -119,7 +119,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport { // 実DBで予�
   void updateCheckoutCleaningStatusMovesRoomVacantWhenCleaned() { // 清掃完了で部屋を再予約可能に戻す。
     Reservation reservation = baseReservation(spareRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 2); // 予約を作る。
     reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000")); // 予約を登録する。
-    reservationService.updateReservationStatus(reservation.getId(), "checked_out"); // 退房状態に切り替える。
+    reservationService.updateReservationStatus(reservation.getId(), "checked_out"); // チェックアウト状態に切り替える。
     reservationService.updateCheckoutCleaningStatus(reservation.getId(), "cleaned"); // 清掃完了へ更新する。
     Room room = roomMapper.findById(spareRoomId); // 対応部屋を取り出す。
     assertThat(room.getOccupancyStatus()).isEqualTo("vacant"); // 空室へ戻ることを確認する。

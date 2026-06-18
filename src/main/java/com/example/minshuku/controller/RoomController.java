@@ -15,7 +15,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes; // 読み
 public class RoomController { // 定義部屋管理コントローラー。
   private final RoomService roomService; // 保存部屋業務サービス依赖。
 
-  public RoomController(RoomService roomService) { // 定義构造メソッド用依赖注入。
+  public RoomController(RoomService roomService) { // 定義構築メソッド用依赖注入。
     this.roomService = roomService; // 保存注入の部屋業務サービス。
   }
 
@@ -29,12 +29,12 @@ public class RoomController { // 定義部屋管理コントローラー。
 
   @PostMapping("/rooms") // を新規登録部屋フォーム送信パス映射へ処理メソッド。
   public String create(@ModelAttribute Room room, RedirectAttributes redirectAttributes) { // 定義新規登録部屋処理メソッド。
-    try { // 捕获業務検証异常と转成ページメッセージ。
+    try { // 捕获業務検証例外と转成ページメッセージ。
       roomService.create(room); // 呼び出し業務サービス新規登録部屋。
       redirectAttributes.addFlashAttribute("message", "部屋を登録しました。"); // 設定新規登録成功メッセージ。
-    } catch (IllegalArgumentException ex) { // 捕获フォーム検証异常。
+    } catch (IllegalArgumentException ex) { // 捕获フォーム検証例外。
       redirectAttributes.addFlashAttribute("error", ex.getMessage()); // 設定エラーメッセージメッセージ。
-    } catch (RuntimeException ex) { // 捕获データベース唯一约束等运行时异常。
+    } catch (RuntimeException ex) { // 捕获データベース唯一约束等起動时例外。
       redirectAttributes.addFlashAttribute("error", "部屋登録に失敗しました。部屋番号が重複していないか確認してください。"); // 設定通用登録失败メッセージ。
     }
     return "redirect:/rooms"; // リダイレクト回部屋管理页避免重複送信。

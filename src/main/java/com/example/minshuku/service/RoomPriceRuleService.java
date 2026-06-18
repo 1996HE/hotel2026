@@ -12,12 +12,12 @@ import org.springframework.util.StringUtils; // 読み込み字符串検証工�
 public class RoomPriceRuleService { // 部屋料金ルール関連の業務ロジックを定義。
   private final RoomPriceRuleMapper priceRuleMapper; // 保存料金ルールデータ访问依赖。
 
-  public RoomPriceRuleService(RoomPriceRuleMapper priceRuleMapper) { // 定義构造メソッド用依赖注入。
+  public RoomPriceRuleService(RoomPriceRuleMapper priceRuleMapper) { // 定義構築メソッド用依赖注入。
     this.priceRuleMapper = priceRuleMapper; // 保存注入の料金ルール Mapper。
   }
 
   public List<RoomPriceRule> findAllWithRoom() { // 料金ルール全件検索を定義の業務メソッド。
-    return priceRuleMapper.findAllWithRoom(); // 呼び出し Mapper 返却带部屋信息の料金ルール一覧。
+    return priceRuleMapper.findAllWithRoom(); // 呼び出し Mapper 返却带部屋情報の料金ルール一覧。
   }
 
   public void create(RoomPriceRule rule) { // 料金ルール追加の業務メソッドを定義。
@@ -35,7 +35,7 @@ public class RoomPriceRuleService { // 部屋料金ルール関連の業務ロ�
     if (ids == null || ids.isEmpty()) { throw new IllegalArgumentException("料金ルールを1件以上選択してください。"); } // 検証必须至少選択一条ルール。
     List<Integer> targetIds = ids.stream().filter(Objects::nonNull).distinct().toList(); // 去除空值と合と重複番号。
     if (targetIds.isEmpty()) { throw new IllegalArgumentException("料金ルールを1件以上選択してください。"); } // 検証清理後仍必要至少一条ルール。
-    if (priceRuleMapper.deleteByIds(targetIds) == 0) { throw new IllegalArgumentException("料金ルールが見つかりません。"); } // 検証必须至少削除一条记录。
+    if (priceRuleMapper.deleteByIds(targetIds) == 0) { throw new IllegalArgumentException("料金ルールが見つかりません。"); } // 検証必须至少削除一条レコード。
   }
 
   private void validateRule(RoomPriceRule rule) { // 定義料金ルール基本検証メソッド。
@@ -45,6 +45,6 @@ public class RoomPriceRuleService { // 部屋料金ルール関連の業務ロ�
     if (rule.getStartDate().isAfter(rule.getEndDate())) { throw new IllegalArgumentException("開始日は終了日以前にしてください。"); } // 検証開始日付非能晚于終了日付。
     if (rule.getPricePerPerson() == null || rule.getPricePerPerson().compareTo(BigDecimal.ZERO) < 0) { throw new IllegalArgumentException("料金は0円以上にしてください。"); } // 検証单价非能に负数。
     if (rule.getPriority() == null) { rule.setPriority(10); } // に缺失の优先级設定初期値值。
-    if (rule.getActive() == null) { rule.setActive(true); } // に缺失の启用状態設定初期値值。
+    if (rule.getActive() == null) { rule.setActive(true); } // に缺失の有効状態設定初期値值。
   }
 }

@@ -15,10 +15,10 @@ a { color: inherit; text-decoration: none; } /* 移除リンク初期値下線�
 .nav { display: flex; gap: 8px; flex-wrap: wrap; } /* 設定ナビゲーションリンク横排列と許可换行。 */
 .nav a { padding: 8px 12px; border-radius: 6px; color: var(--muted); } /* 設定ナビゲーションリンク基本様式。 */
 .nav a.active, .nav a:hover { background: #e6fffb; color: var(--accent); } /* 設定現在ナビゲーションとホバー状態。 */
-.page { width: min(1240px, calc(100% - 24px)); margin: 24px auto 48px; } /* 設定ページコンテンツ最大宽度と外余白。 */
+.page { width: min(1240px, calc(100% - 24px)); margin: 24px auto 48px; } /* 設定ページコンテンツ最大幅と外余白。 */
 .hero { padding: 34px 0 24px; } /* 設定ホーム標題領域间距。 */
 .hero h1, .panel h1, .section-title h2 { margin: 0 0 10px; line-height: 1.2; } /* 設定標題间距と行高。 */
-.hero p { max-width: 760px; color: var(--muted); margin: 0; } /* 設定ホーム说明文字宽度と色。 */
+.hero p { max-width: 760px; color: var(--muted); margin: 0; } /* 設定ホーム说明文字幅と色。 */
 .eyebrow { color: var(--accent) !important; font-weight: 700; letter-spacing: 0; margin-bottom: 8px !important; } /* 設定小標題様式。 */
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; } /* 設定指標卡片网格レイアウト。 */
 .metric { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 20px; } /* 設定指標卡片外观。 */
@@ -36,38 +36,38 @@ a { color: inherit; text-decoration: none; } /* 移除リンク初期値下線�
 .section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; } /* 設定面板標題行レイアウト。 */
 .subsection-title { margin-top: 28px !important; padding-top: 18px; border-top: 1px solid var(--line); } /* 設定同面板内第二一覧標題様式。 */
 .form { display: grid; gap: 12px; } /* 設定フォームフィールド垂直间距。 */
-label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); } /* 設定フォーム標签レイアウトと色。 */
+label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); } /* 設定フォームラベルレイアウトと色。 */
 input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--ink); background: #fff; } /* 設定フォーム控件基本様式。 */
 textarea { resize: vertical; } /* 許可メモ文本框垂直调整大小。 */
 .field-hint { display: block; min-height: 1.2em; margin-top: 4px; font-size: 12px; line-height: 1.35; color: transparent; } /* に入力框下方预留メッセージ位置。 */
 .field-hint.is-visible { color: #fa0707; font-weight: 700; } /* すべての规范メッセージ以鲜红字显著表示。 */
-.check { display: flex; align-items: center; gap: 8px; } /* 設定复选框標签横排列。 */
-.check input { width: auto; } /* すべての复选框保持原生宽度。 */
+.check { display: flex; align-items: center; gap: 8px; } /* 設定复选框ラベル横排列。 */
+.check input { width: auto; } /* すべての复选框保持原生幅。 */
 button, .button { border: 0; border-radius: 6px; background: var(--accent); color: #fff; padding: 9px 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; } /* 設定ボタン基本様式。 */
 button:hover, .button:hover { filter: brightness(0.95); } /* 設定ボタンホバーフィードバック。 */
 .danger { background: var(--danger); } /* 設定危险操作ボタン色。 */
-.table { width: 100%; border-collapse: collapse; min-width: 0; table-layout: fixed; } /* 設定テーブル宽度、固定列レイアウトとボーダー合と。 */
-.table th, .table td { border-bottom: 1px solid var(--line); padding: 10px 10px; text-align: left; vertical-align: top; } /* 設定テーブル单元格间距とボーダー。 */
+.table { width: 100%; border-collapse: collapse; min-width: 0; table-layout: fixed; } /* 設定テーブル幅、固定列レイアウトとボーダー合と。 */
+.table th, .table td { border-bottom: 1px solid var(--line); padding: 10px 10px; text-align: left; vertical-align: top; } /* 設定テーブルセル间距とボーダー。 */
 .table th { color: var(--muted); font-size: 13px; font-weight: 700; background: #f8fafc; } /* 設定ヘッダー様式。 */
 .reservation-table, .compact-table { font-size: 11px; } /* 统一一覧テーブルの表示密度。 */
-.reservation-table th, .reservation-table td { padding: 7px 6px; } /* 调整予約一覧の单元格间距。 */
-.reservation-table-full { min-width: 0; } /* 予約管理页非設定额外最小宽度。 */
-.compact-table { min-width: 0; } /* 取消予約一覧非設定最小宽度。 */
-.compact-table th, .compact-table td { padding: 6px 6px; } /* 缩小取消予約一覧の单元格间距。 */
+.reservation-table th, .reservation-table td { padding: 7px 6px; } /* 调整予約一覧のセル间距。 */
+.reservation-table-full { min-width: 0; } /* 予約管理页非設定额外最小幅。 */
+.compact-table { min-width: 0; } /* 取消予約一覧非設定最小幅。 */
+.compact-table th, .compact-table td { padding: 6px 6px; } /* 缩小取消予約一覧のセル间距。 */
 .compact-table th { font-size: 12px; } /* 缩小取消予約一覧ヘッダー字号。 */
 .checkout-table { font-size: 11px; } /* 统一チェックアウト一覧の表示密度。 */
-.checkout-table th, .checkout-table td { padding: 6px 6px; } /* 缩小チェックアウト一覧の单元格间距。 */
+.checkout-table th, .checkout-table td { padding: 6px 6px; } /* 缩小チェックアウト一覧のセル间距。 */
 .room-table, .deleted-room-table { font-size: 10px; } /* 统一部屋一覧の表示密度。 */
-.room-table th, .room-table td { padding: 6px 5px; } /* 缩小部屋一覧の单元格间距。 */
-.deleted-room-table th, .deleted-room-table td { padding: 5px 5px; } /* 缩小削除済み部屋一覧の单元格间距。 */
-.price-table { min-width: 1220px; font-size: 11px; } /* 設定料金ルール编辑テーブルの最小宽度。 */
+.room-table th, .room-table td { padding: 6px 5px; } /* 缩小部屋一覧のセル间距。 */
+.deleted-room-table th, .deleted-room-table td { padding: 5px 5px; } /* 缩小削除済み部屋一覧のセル间距。 */
+.price-table { min-width: 1220px; font-size: 11px; } /* 設定料金ルール编辑テーブルの最小幅。 */
 .price-table th, .price-table td { padding: 6px 6px; } /* 缩小料金ルールフォーム元格间距。 */
 .price-table input, .price-table select, .price-table textarea { width: 100%; min-width: 0; padding: 6px 7px; font-size: 11px; } /* すべての料金ルールテーブル内控件更紧凑。 */
-.price-table textarea { min-height: 48px; } /* 控制料金ルールテーブルメモ框高度。 */
+.price-table textarea { min-height: 48px; } /* 制御料金ルールテーブルメモ框高さ。 */
 .price-table .price-check-cell { text-align: center; } /* すべての選択列居中。 */
 .price-col-select { width: 44px; } /* 設定料金ルール選択列幅。 */
 .price-col-check { text-align: center; } /* すべての一括選択列コンテンツ居中。 */
-.price-col-check input { width: auto; } /* すべての一括選択复选框保持原生宽度。 */
+.price-col-check input { width: auto; } /* すべての一括選択复选框保持原生幅。 */
 .price-actions { min-width: 96px; display: flex; flex-wrap: wrap; gap: 4px; } /* すべての料金ルール操作ボタン紧凑排列。 */
 .price-actions button { padding: 6px 8px; font-size: 11px; } /* 缩小削除ボタン尺寸。 */
 .price-bulk-form { display: grid; gap: 8px; } /* 設定料金一覧一括削除フォームレイアウト。 */
@@ -107,21 +107,21 @@ button:hover, .button:hover { filter: brightness(0.95); } /* 設定ボタンホ�
 .price-col-note { width: 180px; } /* 設定料金ルールメモ列幅。 */
 .price-col-actions { width: 96px; } /* 設定料金ルール操作列幅。 */
 .table th, .table td { overflow: hidden; text-overflow: ellipsis; } /* 防止长コンテンツ撑破固定列レイアウト。 */
-.table td { word-break: break-word; } /* すべての单元格コンテンツで必要要时换行。 */
-.tag { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; background: #eef6ff; color: #175cd3; font-size: 12px; font-weight: 700; white-space: nowrap; } /* 設定状態標签様式。 */
+.table td { word-break: break-word; } /* すべてのセルコンテンツで必要要时换行。 */
+.tag { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; background: #eef6ff; color: #175cd3; font-size: 12px; font-weight: 700; white-space: nowrap; } /* 設定状態ラベル様式。 */
 .inline-form { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px 2px 0; } /* 設定行内操作フォームレイアウト。 */
-.inline-form select { min-width: 94px; } /* 設定行内選択框最小宽度。 */
+.inline-form select { min-width: 94px; } /* 設定行内選択框最小幅。 */
 .room-status-form { display: flex; align-items: flex-start; gap: 8px; width: 100%; } /* すべての部屋状態更新フォーム横分栏表示。 */
 .room-status-fields { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; } /* すべての两个状態ドロップダウン框縦排列と占据左侧空间。 */
 .room-status-fields select { min-width: 0; width: 100%; } /* すべての状態ドロップダウン框适配左侧列幅。 */
 .room-status-form button { flex: 0 0 auto; align-self: stretch; white-space: nowrap; } /* すべての更新ボタン固定で右侧と与ドロップダウン框同高。 */
 .actions { min-width: 0; } /* 許可操作列压缩へテーブル列幅。 */
-.pager { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; } /* 設定分页ナビゲーションレイアウト。 */
-.pager-link, .pager-state { font-size: 12px; } /* 設定分页リンクと状態字号。 */
-.pager-link { padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--accent); } /* 設定分页リンク様式。 */
-.pager-state { color: var(--muted); font-weight: 700; } /* 設定分页状態様式。 */
-.pager-title { margin-bottom: 8px; } /* 调整分页標題領域间距。 */
-.subsection-title h1 { margin-bottom: 0; } /* 避免分页標題領域额外留白。 */
+.pager { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; } /* 設定ページングナビゲーションレイアウト。 */
+.pager-link, .pager-state { font-size: 12px; } /* 設定ページングリンクと状態字号。 */
+.pager-link { padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--accent); } /* 設定ページングリンク様式。 */
+.pager-state { color: var(--muted); font-weight: 700; } /* 設定ページング状態様式。 */
+.pager-title { margin-bottom: 8px; } /* 调整ページング標題領域间距。 */
+.subsection-title h1 { margin-bottom: 0; } /* 避免ページング標題領域额外留白。 */
 .notice { padding: 10px 12px; border-radius: 6px; font-weight: 700; } /* 設定メッセージメッセージ基本様式。 */
 .success { background: #ecfdf3; color: #027a48; } /* 設定成功メッセージ色。 */
 .error { background: #fef3f2; color: #b42318; } /* 設定エラーメッセージ色。 */

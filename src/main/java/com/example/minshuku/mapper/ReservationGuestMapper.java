@@ -5,5 +5,5 @@ import org.apache.ibatis.annotations.Mapper; // 読み込み MyBatis Mapper 標�
 
 @Mapper // 標记该インターフェース由 MyBatis 生成代理实现。
 public interface ReservationGuestMapper { // 定義 reservation_guests テーブルのデータ访问インターフェース。
-  int insert(ReservationGuest guest); // 新規登録予約同行者记录。
+  int insert(ReservationGuest guest); // 新規登録予約同行者レコード。
 }

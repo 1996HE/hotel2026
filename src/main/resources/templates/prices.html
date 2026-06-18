@@ -57,7 +57,7 @@
       <tbody> <!-- 定義料金ルールテーブルコンテンツ。 -->
       <tr th:each="item : ${rules}"> <!-- 反復料金ルール一覧。 -->
         <td class="price-col-check"><input type="checkbox" name="ids" th:value="${item.id}"></td> <!-- 選択必要要一括削除のルール。 -->
-        <td th:text="${item.roomNumber + ' ' + item.roomName}">101 桜の間</td> <!-- 表示部屋信息。 -->
+        <td th:text="${item.roomNumber + ' ' + item.roomName}">101 桜の間</td> <!-- 表示部屋情報。 -->
         <td th:text="${item.ruleName}">夏休み料金</td> <!-- 表示ルール名称。 -->
         <td th:text="${item.startDate}">2026-07-01</td> <!-- 表示開始日付。 -->
         <td th:text="${item.endDate}">2026-08-31</td> <!-- 表示終了日付。 -->
@@ -65,11 +65,11 @@
         <td th:text="${item.priority}">10</td> <!-- 表示优先度。 -->
         <td th:text="${item.active ? '有効' : '無効'}">有効</td> <!-- 表示状態。 -->
         <td th:text="${item.note}">メモ</td> <!-- 表示メモ。 -->
-        <td class="actions price-actions"> <!-- 定義料金ルール操作单元格。 -->
+        <td class="actions price-actions"> <!-- 定義料金ルール操作セル。 -->
           <button type="submit" class="danger" th:formaction="@{/prices/{id}/delete(id=${item.id})}" formmethod="post">削除</button> <!-- 送信单条削除。 -->
-        </td> <!-- 終了操作单元格。 -->
-      </tr> <!-- 終了料金ルール记录行。 -->
-      <tr th:if="${#lists.isEmpty(rules)}"><td colspan="10" class="empty">料金ルールがありません。</td></tr> <!-- 表示没有料金ルールのメッセージ。 -->
+        </td> <!-- 終了操作セル。 -->
+      </tr> <!-- 終了料金ルールレコード行。 -->
+      <tr th:if="${#lists.isEmpty(rules)}"><td colspan="10" class="empty">料金ルールがありません。</td></tr> <!-- 表示なし料金ルールのメッセージ。 -->
       </tbody> <!-- 終了料金ルールテーブルコンテンツ。 -->
       </table> <!-- 終了料金ルール一覧テーブル。 -->
       </div> <!-- 終了料金テーブル横スクロールコンテナ。 -->

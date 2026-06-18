@@ -36,8 +36,8 @@ public class Room { // 定義民宿客室エンティティ，対応 rooms テ�
   public void setOccupancyStatus(String occupancyStatus) { this.occupancyStatus = occupancyStatus; } // 設定宿泊状態。
   public String getCleaningStatus() { return cleaningStatus; } // 返却清掃状態。
   public void setCleaningStatus(String cleaningStatus) { this.cleaningStatus = cleaningStatus; } // 設定清掃状態。
-  public Boolean getActive() { return active; } // 返却部屋是否启用。
-  public void setActive(Boolean active) { this.active = active; } // 設定部屋是否启用。
+  public Boolean getActive() { return active; } // 返却部屋是否有効。
+  public void setActive(Boolean active) { this.active = active; } // 設定部屋是否有効。
   public String getNote() { return note; } // 返却部屋メモ。
   public void setNote(String note) { this.note = note; } // 設定部屋メモ。
   public OffsetDateTime getCreatedAt() { return createdAt; } // 返却作成時間。
