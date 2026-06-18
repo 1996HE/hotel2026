@@ -1,0 +1,273 @@
+<!doctype html> <!-- HTML5ドキュメントタイプを宣言。 -->
+<html lang="ja" xmlns:th="http://www.thymeleaf.org"> <!-- ページ言語を日本語にし、Thymeleaf名前空間を有効化。 -->
+<head> <!-- head設定を開始。 -->
+  <meta charset="UTF-8"> <!-- 設定ページ文字コードに UTF-8。 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 設定モバイルレスポンシブ視口。 -->
+  <title>予約管理</title> <!-- 設定ブラウザ見出し。 -->
+  <link rel="stylesheet" th:href="@{/styles/app.css}"> <!-- 読み込みシステム様式ファイル。 -->
+</head> <!-- head設定を終了。 -->
+<body> <!-- ページ本文を開始。 -->
+<header class="topbar"> <!-- トップナビゲーションを定義。 -->
+  <a class="brand" href="https://www.booking.com/hotel/jp/bai-ma-shu-hai.zh-cn.html?aid=356980&amp;label=gog235jc-10CAsodUIOYmFpLW1hLXNodS1oYWlIFVgDaHWIAQGYATO4AQfIAQ3YAQPoAQH4AQGIAgGoAgG4AsznytEGwAIB0gIkYjBjNDlkMDgtZDMxZC00NTFkLTkwYWMtMWViOGJhYmY3OTg22AIB4AIB&amp;sid=207e58d33fdee9668a455c0642fd9feb&amp;dist=0&amp;keep_landing=1&amp;sb_price_type=total&amp;type=total&amp;chal_t=1781707724773&amp;force_referer=https%3A%2F%2Fwww.google.com%2F" target="_blank" rel="noopener noreferrer">白馬樹海</a> <!-- 民宿名を表示し、外部予約ページへリンク。 -->
+  <nav class="nav"> <!-- メインナビゲーション領域を定義。 -->
+    <a th:href="@{/dashboard}">予約一覧</a> <!-- 予約一覧への導線を提供。 -->
+    <a th:href="@{/rooms}">部屋</a> <!-- 部屋管理への導線を提供。 -->
+    <a th:href="@{/reservations}" class="active">予約</a> <!-- 予約管理への導線を提供。 -->
+    <a th:href="@{/prices}">料金</a> <!-- 料金管理への導線を提供。 -->
+  </nav> <!-- メインナビゲーション領域を終了。 -->
+</header> <!-- トップナビゲーションを終了。 -->
+<main class="page grid-page"> <!-- 定義された左右レイアウトのページメインコンテンツコンテナ。 -->
+  <section class="panel"> <!-- 定義新規登録予約フォームパネル。 -->
+    <h1>予約登録</h1> <!-- 表示新規登録予約見出し。 -->
+    <p class="notice success" th:if="${message}" th:text="${message}">message</p> <!-- 成功メッセージを表示。 -->
+    <p class="notice error" th:if="${error}" th:text="${error}">error</p> <!-- エラーメッセージを表示。 -->
+    <form class="form" th:action="@{/reservations}" th:object="${reservation}" method="post" novalidate> <!-- 定義新規登録予約フォームと無効化ブラウザ原生検証吹き出し。 -->
+      <label>部屋<select th:field="*{roomId}"><option value="">空室・清掃済の部屋を選択してください</option><option th:each="room : ${rooms}" th:value="${room.id}" th:text="${room.roomNumber + ' ' + room.roomName + ' / 定員' + room.capacity + '名'}">101 桜の間</option></select></label> <!-- のみ選択空室且清掃済部屋。 -->
+      <label>チェックイン<input type="date" th:field="*{checkInDate}"></label> <!-- 入力宿泊日付。 -->
+      <label>チェックアウト<input type="date" th:field="*{checkOutDate}"></label> <!-- 入力チェックアウト日付。 -->
+      <label>宿泊者名<input th:field="*{guestName}" placeholder="山田 太郎"></label> <!-- 入力宿泊者姓名。 -->
+      <label>フリガナ<input th:field="*{guestKana}" placeholder="ヤマダ タロウ" maxlength="100" inputmode="text" pattern="^[ァ-ヶー\\s]+$" title="全角カタカナで入力してください。"><small class="field-hint" data-hint-for="guestKana"></small></label> <!-- 入力宿泊者フリガナ。 -->
+      <label>性別<select th:field="*{guestGender}"><option value="">選択してください</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="未回答">未回答</option></select></label> <!-- 入力予約宿泊者性別。 -->
+      <label>年齢<input type="number" min="0" max="130" th:field="*{guestAge}" placeholder="30"></label> <!-- 入力予約宿泊者年齢。 -->
+      <label>電話<input th:field="*{guestPhone}" id="guestPhone" placeholder="090-0000-0000" maxlength="13" inputmode="tel" pattern="^\\d{3}-\\d{4}-\\d{4}$" title="000-0000-0000 形式で入力してください。"><small class="field-hint" data-hint-for="guestPhone"></small></label> <!-- 入力宿泊者電話。 -->
+      <label class="check contact-toggle"><input type="checkbox" id="noPhoneInfo" name="noPhoneInfo" value="true"> 電話なし</label> <!-- 設定電話番号がない予約。 -->
+      <label>メール<input type="email" th:field="*{guestEmail}" id="guestEmail" placeholder="メールアドレス" maxlength="255" autocomplete="email"><small class="field-hint" data-hint-for="guestEmail"></small></label> <!-- 入力宿泊者メール。 -->
+      <label class="check contact-toggle"><input type="checkbox" id="noEmailInfo" name="noEmailInfo" value="true"> メールなし</label> <!-- 設定メールがない予約。 -->
+      <label>人数<input type="number" min="1" th:field="*{guestCount}" id="guestCountInput" placeholder="2"></label> <!-- 入力宿泊人数と提供スクリプト読み込み用番号。 -->
+      <section class="companion-panel" id="companionPanel" hidden> <!-- 定義人数に二名以上时表示の同行者入力領域。 -->
+        <div class="companion-title">同行者情報</div> <!-- 表示同行者入力領域見出し。 -->
+        <div id="companionRows"></div> <!-- 放置スクリプト自動生成の同行者入力行。 -->
+      </section> <!-- 終了同行者入力領域。 -->
+      <label>予約形式<select th:field="*{reservationForm}"><option value="公式">公式</option><option value="電話">電話</option><option value="メール">メール</option><option value="予約サイト">予約サイト</option><option value="現地">現地</option></select></label> <!-- 選択予約形式。 -->
+      <label>支払い<select th:field="*{paymentStatus}"><option value="unpaid">未払い</option><option value="paid">支払済</option></select></label> <!-- 選択支払い状態。 -->
+      <label>メモ<textarea th:field="*{note}" rows="3"></textarea></label> <!-- 入力予約メモ。 -->
+      <button type="submit">予約登録</button> <!-- 送信新規登録予約フォーム。 -->
+    </form> <!-- 終了新規登録予約フォーム。 -->
+  </section> <!-- 終了新規登録予約フォームパネル。 -->
+  <section class="panel wide"> <!-- 定義予約一覧パネル。 -->
+    <div class="section-title pager-title"> <!-- 定義予約一覧見出しとページ送り領域。 -->
+      <h1>予約一覧</h1> <!-- 表示予約一覧見出し。 -->
+      <div class="pager"> <!-- 定義有効予約ページ送りナビゲーション。 -->
+        <a class="pager-link" th:if="${reservationPage > 1}" th:href="@{/reservations(page=${reservationPage - 1}, cancelledPage=${cancelledPage}, checkedOutPage=${checkedOutPage})}">前へ</a> <!-- 跳转へ上一ページ。 -->
+        <span class="pager-state" th:text="${reservationPage + ' / ' + reservationTotalPages}">1 / 1</span> <!-- 表示現在ページ番号と総ページ数。 -->
+        <a class="pager-link" th:if="${reservationPage < reservationTotalPages}" th:href="@{/reservations(page=${reservationPage + 1}, cancelledPage=${cancelledPage}, checkedOutPage=${checkedOutPage})}">次へ</a> <!-- 跳转へ下一ページ。 -->
+      </div> <!-- 終了有効予約ページ送りナビゲーション。 -->
+    </div> <!-- 終了予約一覧見出しとページ送り領域。 -->
+    <div class="table-scroll"> <!-- 定義予約一覧横スクロールコンテナ。 -->
+    <table class="table reservation-table reservation-table-full"> <!-- 定義予約一覧テーブル。 -->
+      <colgroup> <!-- 定義予約一覧列幅。 -->
+        <col class="col-no"> <!-- 予約番号列。 -->
+        <col class="col-room"> <!-- 部屋列。 -->
+        <col class="col-guest"> <!-- 予約宿泊者列。 -->
+        <col class="col-count"> <!-- 人数列。 -->
+        <col class="col-contact"> <!-- 連絡先列。 -->
+        <col class="col-form"> <!-- 予約形式列。 -->
+        <col class="col-companion"> <!-- 同行者列。 -->
+        <col class="col-date"> <!-- 日程列。 -->
+        <col class="col-amount"> <!-- 金額列。 -->
+        <col class="col-reservation-status"> <!-- 予約状態列。 -->
+        <col class="col-payment-status"> <!-- 支払い状態列。 -->
+        <col class="col-actions"> <!-- 操作列。 -->
+      </colgroup> <!-- 終了予約一覧列幅。 -->
+      <thead><tr><th>予約番号</th><th>部屋</th><th>予約者</th><th>人数</th><th>連絡先</th><th>予約形式</th><th>同行者</th><th>日程</th><th>金額</th><th>予約状態</th><th>支払い</th><th>操作</th></tr></thead> <!-- 定義予約ヘッダー。 -->
+      <tbody> <!-- 定義予約テーブルコンテンツ。 -->
+      <tr th:each="item : ${reservations}"> <!-- 反復予約一覧。 -->
+        <td th:text="${item.reservationNo}">予約番号</td> <!-- 表示予約番号。 -->
+        <td th:text="${item.roomNumber + ' ' + item.roomName}">101 桜の間</td> <!-- 部屋番号を表示と名称。 -->
+        <td th:text="${item.guestName + ' / ' + (item.guestGender == null || item.guestGender == '' ? '性別未入力' : item.guestGender) + ' / ' + (item.guestAge == null ? '年齢未入力' : item.guestAge + '歳')}">山田太郎 / 男性 / 30歳</td> <!-- 表示予約宿泊者姓名、性別と年齢。 -->
+        <td th:text="${item.guestCount + '名'}">2名</td> <!-- 表示宿泊人数。 -->
+        <td th:text="${(item.guestPhone == null || item.guestPhone == '' ? '電話未入力' : item.guestPhone) + ' / ' + (item.guestEmail == null || item.guestEmail == '' ? 'メール未入力' : item.guestEmail)}">090 / mail</td> <!-- 表示予約宿泊者連絡方式。 -->
+        <td th:text="${item.reservationForm == null || item.reservationForm == '' ? '公式' : item.reservationForm}">公式</td> <!-- 表示予約形式。 -->
+        <td th:text="${item.companionSummary == null || item.companionSummary == '' ? '同行者なし' : item.companionSummary}">同行者なし</td> <!-- 表示同行者姓名、性別、年齢と連絡方式。 -->
+        <td th:text="${item.checkInDate + ' - ' + item.checkOutDate}">2026-07-01 - 2026-07-02</td> <!-- 表示宿泊へチェックアウト日付。 -->
+        <td th:text="${'¥' + item.totalAmount}">¥17600</td> <!-- 表示予定総金額。 -->
+        <td><span class="tag" th:text="${item.reservationStatusLabel}">予約済</span></td> <!-- 表示予約状態。 -->
+        <td><span class="tag" th:text="${item.paymentStatusLabel}">未払い</span></td> <!-- 表示支払い状態。 -->
+        <td class="actions"> <!-- 定義予約操作セル。 -->
+          <form class="inline-form" th:action="@{/reservations/{id}/payment(id=${item.id})}" method="post"> <!-- 定義支払い状態更新フォーム。 -->
+            <select name="paymentStatus"><option value="unpaid">未払い</option><option value="paid">支払済</option></select> <!-- 選択支払い状態。 -->
+            <button type="submit">更新</button> <!-- 送信支払い状態更新。 -->
+          </form> <!-- 終了支払い状態更新フォーム。 -->
+          <form class="inline-form" th:action="@{/reservations/{id}/cancel(id=${item.id})}" method="post"> <!-- 定義取消予約フォーム。 -->
+            <button type="submit" class="danger">取消</button> <!-- 送信取消予約操作。 -->
+          </form> <!-- 終了取消予約フォーム。 -->
+        </td> <!-- 終了予約操作セル。 -->
+      </tr> <!-- 終了予約記録行。 -->
+      <tr th:if="${#lists.isEmpty(reservations)}"><td colspan="12" class="empty">予約データがありません。</td></tr> <!-- 予約データがない場合のメッセージ。 -->
+      </tbody> <!-- 終了予約テーブルコンテンツ。 -->
+    </table> <!-- 終了予約一覧テーブル。 -->
+    </div> <!-- 終了予約一覧横スクロールコンテナ。 -->
+    <div class="section-title pager-title subsection-title"> <!-- 定義取消予約一覧見出しとページ送り領域。 -->
+      <h1>取消予約一覧</h1> <!-- 表示取消予約一覧見出し。 -->
+      <div class="pager"> <!-- 定義取消予約ページ送りナビゲーション。 -->
+        <a class="pager-link" th:if="${cancelledPage > 1}" th:href="@{/reservations(page=${reservationPage}, cancelledPage=${cancelledPage - 1}, checkedOutPage=${checkedOutPage})}">前へ</a> <!-- 跳转へ上一ページ。 -->
+        <span class="pager-state" th:text="${cancelledPage + ' / ' + cancelledTotalPages}">1 / 1</span> <!-- 表示現在ページ番号と総ページ数。 -->
+        <a class="pager-link" th:if="${cancelledPage < cancelledTotalPages}" th:href="@{/reservations(page=${reservationPage}, cancelledPage=${cancelledPage + 1}, checkedOutPage=${checkedOutPage})}">次へ</a> <!-- 跳转へ下一ページ。 -->
+      </div> <!-- 終了取消予約ページ送りナビゲーション。 -->
+    </div> <!-- 終了取消予約一覧見出しとページ送り領域。 -->
+    <div class="table-scroll"> <!-- 定義取消予約一覧横スクロールコンテナ。 -->
+    <table class="table compact-table"> <!-- 定義取消予約一覧テーブルと使用紧凑表示。 -->
+      <colgroup> <!-- 定義取消予約一覧列幅。 -->
+        <col class="col-no"> <!-- 予約番号列。 -->
+        <col class="col-room"> <!-- 部屋列。 -->
+        <col class="col-guest"> <!-- 予約宿泊者列。 -->
+        <col class="col-count"> <!-- 人数列。 -->
+        <col class="col-contact"> <!-- 連絡先列。 -->
+        <col class="col-form"> <!-- 予約形式列。 -->
+        <col class="col-companion"> <!-- 同行者列。 -->
+        <col class="col-date"> <!-- 日程列。 -->
+        <col class="col-amount"> <!-- 金額列。 -->
+        <col class="col-reservation-status"> <!-- 予約状態列。 -->
+        <col class="col-payment-status"> <!-- 支払い状態列。 -->
+      </colgroup> <!-- 終了取消予約一覧列幅。 -->
+      <thead><tr><th>予約番号</th><th>部屋</th><th>予約者</th><th>人数</th><th>連絡先</th><th>予約形式</th><th>同行者</th><th>日程</th><th>金額</th><th>予約状態</th><th>支払い</th></tr></thead> <!-- 定義取消予約ヘッダー。 -->
+      <tbody> <!-- 定義取消予約テーブルコンテンツ。 -->
+      <tr th:each="item : ${cancelledReservations}"> <!-- 反復取消予約一覧。 -->
+        <td th:text="${item.reservationNo}">予約番号</td> <!-- 表示予約番号。 -->
+        <td th:text="${item.roomNumber + ' ' + item.roomName}">101 桜の間</td> <!-- 部屋番号を表示と名称。 -->
+        <td th:text="${item.guestName + ' / ' + (item.guestGender == null || item.guestGender == '' ? '性別未入力' : item.guestGender) + ' / ' + (item.guestAge == null ? '年齢未入力' : item.guestAge + '歳')}">山田太郎 / 男性 / 30歳</td> <!-- 表示予約宿泊者姓名、性別と年齢。 -->
+        <td th:text="${item.guestCount + '名'}">2名</td> <!-- 表示宿泊人数。 -->
+        <td th:text="${(item.guestPhone == null || item.guestPhone == '' ? '電話未入力' : item.guestPhone) + ' / ' + (item.guestEmail == null || item.guestEmail == '' ? 'メール未入力' : item.guestEmail)}">090 / mail</td> <!-- 表示予約宿泊者連絡方式。 -->
+        <td th:text="${item.reservationForm == null || item.reservationForm == '' ? '公式' : item.reservationForm}">公式</td> <!-- 表示予約形式。 -->
+        <td th:text="${item.companionSummary == null || item.companionSummary == '' ? '同行者なし' : item.companionSummary}">同行者なし</td> <!-- 表示同行者姓名、性別、年齢と連絡方式。 -->
+        <td th:text="${item.checkInDate + ' - ' + item.checkOutDate}">2026-07-01 - 2026-07-02</td> <!-- 表示宿泊へチェックアウト日付。 -->
+        <td th:text="${'¥' + item.totalAmount}">¥17600</td> <!-- 表示予定総金額。 -->
+        <td><span class="tag" th:text="${item.reservationStatusLabel}">取消済</span></td> <!-- 表示予約状態。 -->
+        <td><span class="tag" th:text="${item.paymentStatusLabel}">未払い</span></td> <!-- 表示支払い状態。 -->
+      </tr> <!-- 終了取消予約記録行。 -->
+      <tr th:if="${#lists.isEmpty(cancelledReservations)}"><td colspan="11" class="empty">取消予約はありません。</td></tr> <!-- 取消予約がない場合のメッセージ。 -->
+      </tbody> <!-- 終了取消予約テーブルコンテンツ。 -->
+    </table> <!-- 終了取消予約一覧テーブル。 -->
+    </div> <!-- 終了取消予約一覧横スクロールコンテナ。 -->
+    <div class="section-title pager-title subsection-title"> <!-- チェックアウト一覧見出しとページ送り領域。 -->
+      <h1>チェックアウト一覧</h1> <!-- チェックアウト一覧の見出し。 -->
+      <div class="pager"> <!-- 部屋ページ送りナビゲーション。 -->
+        <a class="pager-link" th:if="${checkedOutPage > 1}" th:href="@{/reservations(page=${reservationPage}, cancelledPage=${cancelledPage}, checkedOutPage=${checkedOutPage - 1})}">前へ</a> <!-- 跳转へ上一ページ。 -->
+        <span class="pager-state" th:text="${checkedOutPage + ' / ' + checkedOutTotalPages}">1 / 1</span> <!-- 表示現在ページ番号と総ページ数。 -->
+        <a class="pager-link" th:if="${checkedOutPage < checkedOutTotalPages}" th:href="@{/reservations(page=${reservationPage}, cancelledPage=${cancelledPage}, checkedOutPage=${checkedOutPage + 1})}">次へ</a> <!-- 跳转へ下一ページ。 -->
+      </div> <!-- 終了チェックアウトページ送りナビゲーション。 -->
+    </div> <!-- 終了チェックアウト一覧見出しとページ送り領域。 -->
+    <div class="table-scroll"> <!-- チェックアウト一覧横スクロールコンテナ。 -->
+    <table class="table compact-table checkout-table"> <!-- チェックアウト一覧テーブルと使用紧凑表示。 -->
+      <colgroup> <!-- チェックアウト一覧列幅。 -->
+        <col class="col-no"> <!-- 予約番号列。 -->
+        <col class="col-room"> <!-- 部屋列。 -->
+        <col class="col-guest"> <!-- 予約宿泊者列。 -->
+        <col class="col-count"> <!-- 人数列。 -->
+        <col class="col-contact"> <!-- 連絡先列。 -->
+        <col class="col-reservation-status"> <!-- 予約状態列。 -->
+        <col class="col-cleaning-status"> <!-- 清掃状態列。 -->
+        <col class="col-checkout-actions"> <!-- 操作列。 -->
+      </colgroup> <!-- 終了チェックアウト一覧列幅。 -->
+      <thead><tr><th>予約番号</th><th>部屋番号</th><th>予約者</th><th>人数</th><th>連絡先</th><th>予約状態</th><th>清掃</th><th>操作</th></tr></thead> <!-- チェックアウト一覧の見出し行。 -->
+      <tbody> <!-- 部屋テーブルコンテンツ。 -->
+      <tr th:each="item : ${checkedOutReservations}"> <!-- 反復チェックアウト予約一覧。 -->
+        <td th:text="${item.reservationNo}">予約番号</td> <!-- 表示予約番号。 -->
+        <td th:text="${item.roomNumber}">101</td> <!-- 部屋番号を表示。 -->
+        <td th:text="${item.guestName + ' / ' + (item.guestGender == null || item.guestGender == '' ? '性別未入力' : item.guestGender) + ' / ' + (item.guestAge == null ? '年齢未入力' : item.guestAge + '歳')}">山田太郎 / 男性 / 30歳</td> <!-- 表示予約宿泊者姓名、性別と年齢。 -->
+        <td th:text="${item.guestCount + '名'}">2名</td> <!-- 表示宿泊人数。 -->
+        <td th:text="${(item.guestPhone == null || item.guestPhone == '' ? '電話未入力' : item.guestPhone) + ' / ' + (item.guestEmail == null || item.guestEmail == '' ? 'メール未入力' : item.guestEmail)}">090 / mail</td> <!-- 表示連絡方式。 -->
+        <td><span class="tag" th:text="${item.reservationStatusLabel}">退部屋完了待清掃</span></td> <!-- 表示予約状態。 -->
+        <td><span class="tag" th:text="${item.roomCleaningStatus == 'cleaned' ? '清掃済' : '清掃待ち'}">清掃待ち</span></td> <!-- 表示部屋清掃状態。 -->
+        <td class="actions"> <!-- 部屋操作セル。 -->
+          <form class="inline-form" th:action="@{/reservations/{id}/cleaning(id=${item.id})}" method="post"> <!-- 定義清掃状態更新フォーム。 -->
+            <select name="cleaningStatus"><option value="needs_cleaning" th:selected="${item.roomCleaningStatus == 'needs_cleaning'}">清掃待ち</option><option value="cleaned" th:selected="${item.roomCleaningStatus == 'cleaned'}">清掃済</option></select> <!-- 選択清掃状態，清掃済时自動恢复に空室可能予約。 -->
+            <button type="submit">更新</button> <!-- 送信清掃状態更新。 -->
+          </form> <!-- 終了清掃状態更新フォーム。 -->
+        </td> <!-- 終了チェックアウト操作セル。 -->
+      </tr> <!-- 終了チェックアウト記録行。 -->
+      <tr th:if="${#lists.isEmpty(checkedOutReservations)}"><td colspan="8" class="empty">チェックアウトデータがありません。</td></tr> <!-- チェックアウトデータがない場合のメッセージ。 -->
+      </tbody> <!-- 終了チェックアウトテーブルコンテンツ。 -->
+    </table> <!-- 終了チェックアウト一覧テーブル。 -->
+    </div> <!-- 終了チェックアウト一覧横スクロールコンテナ。 -->
+  </section> <!-- 終了予約一覧パネル。 -->
+</main> <!-- 終了ページメインコンテンツコンテナ。 -->
+<script> // 開始予約ページ交互脚本。
+  const form = document.querySelector(".form"); // 取得予約フォーム。
+  const guestCountInput = document.getElementById("guestCountInput"); // 取得宿泊人数入力框。
+  const companionPanel = document.getElementById("companionPanel"); // 取得同行者入力領域。
+  const companionRows = document.getElementById("companionRows"); // 取得同行者入力行コンテナ。
+  const phonePattern = /^\d{3}-\d{4}-\d{4}$/; // 定義電話形式検証ルール。
+  const validators = { // 定義各フィールドの形式検証ルール。
+    guestKana: (value) => !value || /^[ァ-ヶー\s]+$/.test(value), // 検証予約人フリガナ。
+    guestPhone: (value) => !value || phonePattern.test(value.trim()), // 検証予約人電話。
+    guestEmail: (value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), // 検証予約人メール。
+    companionKana: (value) => !value || /^[ァ-ヶー\s]+$/.test(value), // 検証同行者フリガナ。
+    companionPhone: (value) => !value || phonePattern.test(value.trim()), // 検証同行者電話。
+  }; // 終了形式検証ルール定義。
+  const fieldMessages = { // 定義フィールド下方テーブル示のメッセージ文案。
+    guestKana: "フリガナは全角カタカナで入力してください。", // 予約人フリガナメッセージ。
+    guestPhone: "電話番号は000-0000-0000形式で入力してください。", // 予約人電話メッセージ。
+    guestEmail: "メールアドレスは user@example.com 形式で入力してください。", // 予約人メールメッセージ。
+    companionKana: "同行者のフリガナも全角カタカナで入力してください。", // 同行者フリガナメッセージ。
+    companionPhone: "同行者の電話番号も000-0000-0000形式で入力してください。", // 同行者電話メッセージ。
+  }; // 終了フィールドメッセージ文案定義。
+  function getFieldValue(selector) { // 定義安全読み込みフィールド值のメソッド。
+    const field = form.querySelector(selector); // に従って選択器検索フィールド。
+    return field ? field.value.trim() : ""; // 返却去空格後のフィールド值。
+  } // 終了安全読み込みフィールド值のメソッド。
+  function setFieldHint(name, ok) { // 定義フィールド级メッセージ更新メソッド。
+    const hint = form.querySelector(`[data-hint-for="${name}"]`); // 検索フィールド下方メッセージ領域。
+    if (!hint) { return; } // 未找へメッセージ領域时直接終了。
+    hint.textContent = ok ? "" : fieldMessages[name]; // 合ルール清空メッセージ，非合ルールテーブル示赤字。
+    hint.classList.toggle("is-visible", !ok); // 非合ルール时テーブル示メッセージ。
+  } // 終了单条规范メッセージ状態更新メソッド。
+  function validateCompanionInputs() { // 定義同行者入力规范更新メソッド。
+    const companionRowsList = companionRows.querySelectorAll(".companion-row"); // 取得所有同行者入力行。
+    companionRowsList.forEach((row) => { // 各一位同行者入力行。
+      const kana = row.querySelector('input[name="companionKanas"]'); // 取得同行者フリガナ入力框。
+      const phone = row.querySelector('input[name="companionPhones"]'); // 取得同行者電話入力框。
+      const kanaHint = row.querySelector('[data-hint-for="companionKana"]'); // 取得同行者フリガナメッセージ領域。
+      const phoneHint = row.querySelector('[data-hint-for="companionPhone"]'); // 取得同行者電話メッセージ領域。
+      if (kanaHint) { kanaHint.textContent = validators.companionKana(kana ? kana.value.trim() : "") ? "" : fieldMessages.companionKana; } // 更新同行者フリガナ赤字メッセージ。
+      if (phoneHint) { phoneHint.textContent = validators.companionPhone(phone ? phone.value.trim() : "") ? "" : fieldMessages.companionPhone; } // 更新同行者電話赤字メッセージ。
+    }); // 終了同行者入力行反復。
+  } // 終了同行者入力规范更新メソッド。
+  function updateValidationHints() { // 定義全体入力规范メッセージ更新メソッド。
+    const guestKana = getFieldValue('[name="guestKana"]'); // 読み込み予約人フリガナ。
+    const guestPhone = getFieldValue('[name="guestPhone"]'); // 読み込み予約人電話。
+    const guestEmail = getFieldValue('[name="guestEmail"]'); // 読み込み予約人メール。
+    setFieldHint("guestKana", validators.guestKana(guestKana)); // 更新予約人フリガナ规范状態。
+    const noPhoneInfo = document.getElementById("noPhoneInfo")?.checked; // 読み込み電話省略選択。
+    const noEmailInfo = document.getElementById("noEmailInfo")?.checked; // 読み込みメール省略選択。
+    setFieldHint("guestPhone", noPhoneInfo || validators.guestPhone(guestPhone)); // 更新予約人電話规范状態。
+    setFieldHint("guestEmail", noEmailInfo || validators.guestEmail(guestEmail)); // 更新予約人メール规范状態。
+    validateCompanionInputs(); // 更新同行者入力検証情報。
+  } // 終了全体入力规范メッセージ更新メソッド。
+  function syncContactFields() { // 定義電話メール省略時の入力制御メソッド。
+    const noPhoneInfo = document.getElementById("noPhoneInfo"); // 取得電話省略スイッチ。
+    const noEmailInfo = document.getElementById("noEmailInfo"); // 取得メール省略スイッチ。
+    const guestPhone = document.getElementById("guestPhone"); // 取得電話入力框。
+    const guestEmail = document.getElementById("guestEmail"); // 取得メール入力框。
+    const disablePhone = Boolean(noPhoneInfo && noPhoneInfo.checked); // 電話省略時は電話入力を無効化する。
+    const disableEmail = Boolean(noEmailInfo && noEmailInfo.checked); // メール省略時はメール入力を無効化する。
+    if (guestPhone) { guestPhone.disabled = disablePhone; if (disablePhone) { guestPhone.value = ""; } } // 電話入力を無効化または有効化する。
+    if (guestEmail) { guestEmail.disabled = disableEmail; if (disableEmail) { guestEmail.value = ""; } } // メール入力を無効化または有効化する。
+    updateValidationHints(); // 変更後に検証表示を更新する。
+  } // 終了電話メール省略時の入力制御メソッド。
+  function renderCompanionRows() { // 定義根据宿泊人数生成同行者入力行のメソッド。
+    const guestCount = Number(guestCountInput.value || 1); // 読み込み宿泊人数，未入力时に従って一名処理。
+    const companionCount = Math.max(0, guestCount - 1); // 計算同行者人数。
+    companionPanel.hidden = companionCount < 1; // 少于一位同行者时隐藏入力領域。
+    companionRows.innerHTML = ""; // 清空旧の同行者入力行。
+    for (let index = 0; index < companionCount; index += 1) { // に従って同行者人数ループ生成入力行。
+      const row = document.createElement("div"); // 作成同行者入力行コンテナ。
+      row.className = "companion-row"; // 設定同行者入力行様式类。
+      row.innerHTML = `<label>同行者${index + 1} 氏名<input name="companionNames" placeholder="同行者氏名" required></label><label>フリガナ<input name="companionKanas" placeholder="フリガナ" maxlength="100" inputmode="text" pattern="^[ァ-ヶー\\s]+$" title="全角カタカナで入力してください。"><small class="field-hint" data-hint-for="companionKana"></small></label><label>性別<select name="companionGenders"><option value="">選択してください</option><option value="男性">男性</option><option value="女性">女性</option><option value="その他">その他</option><option value="未回答">未回答</option></select></label><label>年齢<input type="number" min="0" max="130" name="companionAges" placeholder="年齢"></label><label>電話<input name="companionPhones" placeholder="電話番号" maxlength="13" inputmode="tel" pattern="^\\d{3}-\\d{4}-\\d{4}$" title="000-0000-0000 形式で入力してください。"><small class="field-hint" data-hint-for="companionPhone"></small></label>`; // 設定同行者姓名、フリガナ、性別、年齢と電話入力框。
+      row.addEventListener("input", updateValidationHints); // 監視同行者入力变化と刷新规范メッセージ。
+      companionRows.appendChild(row); // を同行者入力行追加ページ。
+    } // 終了同行者入力行生成ループ。
+    updateValidationHints(); // 再生成後刷新规范メッセージ。
+  } // 終了同行者入力行生成メソッド。
+  form.addEventListener("input", updateValidationHints); // 監視フォーム任意入力变化と刷新规范メッセージ。
+  form.addEventListener("change", updateValidationHints); // 監視フォーム選択变化と刷新规范メッセージ。
+  document.getElementById("noPhoneInfo")?.addEventListener("change", syncContactFields); // 監視電話省略切替。
+  document.getElementById("noEmailInfo")?.addEventListener("change", syncContactFields); // 監視メール省略切替。
+  guestCountInput.addEventListener("input", renderCompanionRows); // で人数变化时再生成同行者入力行。
+  guestCountInput.addEventListener("input", updateValidationHints); // で人数变化时同步刷新规范メッセージ。
+  renderCompanionRows(); // ページ初回読み込み时に従って現在人数初始化同行者入力領域。
+  syncContactFields(); // ページ初回読み込み时に電話メール入力状態を同期する。
+  updateValidationHints(); // ページ初回読み込み时刷新规范メッセージ。
+</script> <!-- 終了予約ページインタラクションスクリプト。 -->
+</body> <!-- ページ本文を終了。 -->
+</html> <!-- 終了 HTML ドキュメント。 -->

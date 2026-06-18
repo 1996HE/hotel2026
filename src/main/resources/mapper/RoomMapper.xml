@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- 宣言 MyBatis XML 文件编码。 -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd"> <!-- 宣言 MyBatis Mapper DTD。 -->
+<mapper namespace="com.example.minshuku.mapper.RoomMapper"> <!-- 绑定 Java 部屋 Mapper インターフェース。 -->
+  <resultMap id="RoomResultMap" type="com.example.minshuku.domain.Room"> <!-- 定義 rooms テーブルへ Room オブジェクトのフィールド映射。 -->
+    <id property="id" column="id" /> <!-- 映射部屋主キー番号。 -->
+    <result property="roomNumber" column="room_number" /> <!-- 映射部屋番号。 -->
+    <result property="roomName" column="room_name" /> <!-- 映射部屋名称。 -->
+    <result property="roomType" column="room_type" /> <!-- 映射部屋タイプ代码。 -->
+    <result property="capacity" column="capacity" /> <!-- 映射宿泊人数上限。 -->
+    <result property="basePricePerPerson" column="base_price_per_person" /> <!-- 映射每人基本単価。 -->
+    <result property="privateBath" column="private_bath" /> <!-- 映射独立浴室標记。 -->
+    <result property="occupancyStatus" column="occupancy_status" /> <!-- 映射宿泊状態。 -->
+    <result property="cleaningStatus" column="cleaning_status" /> <!-- 映射清掃状態。 -->
+    <result property="active" column="active" /> <!-- 映射启用状態。 -->
+    <result property="note" column="note" /> <!-- 映射部屋メモ。 -->
+    <result property="createdAt" column="created_at" /> <!-- 映射作成時間。 -->
+    <result property="updatedAt" column="updated_at" /> <!-- 映射更新時間。 -->
+  </resultMap> <!-- 終了 Room フィールド映射。 -->
+
+  <sql id="RoomColumns"> <!-- 定義部屋検索复用フィールド一覧。 -->
+    id, room_number, room_name, room_type, capacity, base_price_per_person, private_bath, occupancy_status, cleaning_status, active, note, created_at, updated_at <!-- 列出 rooms テーブル必要要読み込みのフィールド。 -->
+  </sql> <!-- 終了部屋复用フィールド一覧。 -->
+
+  <select id="findAll" resultMap="RoomResultMap"> <!-- 定義検索全部部屋の SQL。 -->
+    SELECT <include refid="RoomColumns" /> FROM rooms WHERE active = true ORDER BY room_number <!-- 按部屋番号排序返却未削除部屋。 -->
+  </select> <!-- 終了検索全部部屋 SQL。 -->
+
+  <select id="findInactive" resultMap="RoomResultMap"> <!-- 定義検索完了削除部屋の SQL。 -->
+    SELECT <include refid="RoomColumns" /> FROM rooms WHERE active = false ORDER BY updated_at DESC, room_number <!-- 按更新時間倒序返却削除済み部屋。 -->
+  </select> <!-- 終了検索完了削除部屋 SQL。 -->
+
+  <select id="findActive" resultMap="RoomResultMap"> <!-- 定義検索启用部屋の SQL。 -->
+    SELECT <include refid="RoomColumns" /> FROM rooms WHERE active = true ORDER BY room_number <!-- のみ返却启用部屋と按番号排序。 -->
+  </select> <!-- 終了検索启用部屋 SQL。 -->
+
+  <select id="findBookable" resultMap="RoomResultMap"> <!-- 定義検索可能予約部屋の SQL。 -->
+    SELECT <include refid="RoomColumns" /> FROM rooms WHERE active = true AND occupancy_status = 'vacant' AND cleaning_status = 'cleaned' ORDER BY room_number <!-- のみ返却启用、空室且清掃済の部屋。 -->
+  </select> <!-- 終了検索可能予約部屋 SQL。 -->
+
+  <select id="findById" resultMap="RoomResultMap"> <!-- 定義按主キー検索部屋の SQL。 -->
+    SELECT <include refid="RoomColumns" /> FROM rooms WHERE id = #{id} <!-- 根据部屋主キー読み込み单条记录。 -->
+  </select> <!-- 終了按主キー検索部屋 SQL。 -->
+
+  <select id="findByRoomNumberIncludingInactive" resultMap="RoomResultMap"> <!-- 定義按部屋番号検索含完了削除部屋の SQL。 -->
+    SELECT <include refid="RoomColumns" /> FROM rooms WHERE room_number = #{roomNumber} <!-- 根据部屋番号読み込み单条记录，非过滤削除状態。 -->
+  </select> <!-- 終了按部屋番号検索含完了削除部屋 SQL。 -->
+
+  <insert id="insert" parameterType="com.example.minshuku.domain.Room" useGeneratedKeys="true" keyProperty="id"> <!-- 定義新規登録部屋 SQL と回填主キー。 -->
+    INSERT INTO rooms (room_number, room_name, room_type, capacity, base_price_per_person, private_bath, occupancy_status, cleaning_status, active, note) <!-- 指定新規登録部屋書き込みフィールド。 -->
+    VALUES (#{roomNumber}, #{roomName}, #{roomType}, #{capacity}, #{basePricePerPerson}, #{privateBath}, #{occupancyStatus}, #{cleaningStatus}, #{active}, #{note}) <!-- 绑定新規登録部屋フォーム值。 -->
+  </insert> <!-- 終了新規登録部屋 SQL。 -->
+
+  <update id="reactivate" parameterType="com.example.minshuku.domain.Room"> <!-- 定義恢复完了削除部屋 SQL。 -->
+    UPDATE rooms SET room_name = #{roomName}, room_type = #{roomType}, capacity = #{capacity}, base_price_per_person = #{basePricePerPerson}, private_bath = #{privateBath}, occupancy_status = #{occupancyStatus}, cleaning_status = #{cleaningStatus}, active = true, note = #{note}, updated_at = now() WHERE room_number = #{roomNumber} <!-- 用フォーム值更新同番号完了削除部屋と重新启用。 -->
+  </update> <!-- 終了恢复完了削除部屋 SQL。 -->
+
+  <update id="updateStatuses"> <!-- 定義更新部屋状態 SQL。 -->
+    UPDATE rooms SET occupancy_status = #{occupancyStatus}, cleaning_status = #{cleaningStatus}, updated_at = now() WHERE id = #{id} <!-- 更新宿泊状態、清掃状態と更新時間。 -->
+  </update> <!-- 終了更新部屋状態 SQL。 -->
+
+  <update id="deactivate"> <!-- 定義软削除部屋 SQL。 -->
+    UPDATE rooms SET active = false, updated_at = now() WHERE id = #{id} <!-- を部屋設定に無効と更新時間。 -->
+  </update> <!-- 終了软削除部屋 SQL。 -->
+
+  <select id="countAll" resultType="int"> <!-- 定義集計全部部屋数量 SQL。 -->
+    SELECT COUNT(*) FROM rooms WHERE active = true <!-- 返却未削除部屋数量。 -->
+  </select> <!-- 終了集計全部部屋数量 SQL。 -->
+
+  <select id="countVacant" resultType="int"> <!-- 定義集計空房数量 SQL。 -->
+    SELECT COUNT(*) FROM rooms WHERE active = true AND occupancy_status = 'vacant' <!-- 返却启用且空闲の部屋数量。 -->
+  </select> <!-- 終了集計空房数量 SQL。 -->
+</mapper> <!-- 終了部屋 Mapper XML。 -->

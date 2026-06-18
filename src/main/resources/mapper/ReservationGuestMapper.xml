@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- 宣言 MyBatis XML 文件编码。 -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd"> <!-- 宣言 MyBatis Mapper DTD。 -->
+<mapper namespace="com.example.minshuku.mapper.ReservationGuestMapper"> <!-- 绑定 Java 同行者 Mapper インターフェース。 -->
+  <insert id="insert" parameterType="com.example.minshuku.domain.ReservationGuest" useGeneratedKeys="true" keyProperty="id"> <!-- 定義新規登録同行者 SQL と回填主キー。 -->
+    INSERT INTO reservation_guests (reservation_id, guest_name, guest_kana, guest_gender, guest_age, guest_phone) <!-- 指定新規登録同行者書き込みフィールド。 -->
+    VALUES (#{reservationId}, #{guestName}, #{guestKana}, #{guestGender}, #{guestAge}, #{guestPhone}) <!-- 绑定同行者フォーム值。 -->
+  </insert> <!-- 終了新規登録同行者 SQL。 -->
+</mapper> <!-- 終了同行者 Mapper XML。 -->

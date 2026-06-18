@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- 宣言 MyBatis XML 文件编码。 -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd"> <!-- 宣言 MyBatis Mapper DTD。 -->
+<mapper namespace="com.example.minshuku.mapper.RoomPriceRuleMapper"> <!-- 绑定 Java 料金ルール Mapper インターフェース。 -->
+  <resultMap id="PriceRuleResultMap" type="com.example.minshuku.domain.RoomPriceRule"> <!-- 定義料金ルール検索結果映射。 -->
+    <id property="id" column="id" /> <!-- 映射料金ルール主キー番号。 -->
+    <result property="roomId" column="room_id" /> <!-- 映射所属部屋番号。 -->
+    <result property="roomNumber" column="room_number" /> <!-- 映射結合得への部屋番号。 -->
+    <result property="roomName" column="room_name" /> <!-- 映射結合得への部屋名称。 -->
+    <result property="ruleName" column="rule_name" /> <!-- 映射料金ルール名称。 -->
+    <result property="startDate" column="start_date" /> <!-- 映射ルール開始日付。 -->
+    <result property="endDate" column="end_date" /> <!-- 映射ルール終了日付。 -->
+    <result property="pricePerPerson" column="price_per_person" /> <!-- 映射每人单价。 -->
+    <result property="priority" column="priority" /> <!-- 映射ルール优先级。 -->
+    <result property="active" column="active" /> <!-- 映射启用状態。 -->
+    <result property="note" column="note" /> <!-- 映射ルールメモ。 -->
+    <result property="createdAt" column="created_at" /> <!-- 映射作成時間。 -->
+    <result property="updatedAt" column="updated_at" /> <!-- 映射更新時間。 -->
+  </resultMap> <!-- 終了料金ルール結果映射。 -->
+
+  <select id="findAllWithRoom" resultMap="PriceRuleResultMap"> <!-- 料金ルール全件検索SQLを定義。 -->
+    SELECT rpr.id, rpr.room_id, rooms.room_number, rooms.room_name, rpr.rule_name, rpr.start_date, rpr.end_date, rpr.price_per_person, rpr.priority, rpr.active, rpr.note, rpr.created_at, rpr.updated_at <!-- 選択ルールフィールドと部屋テーブル示フィールド。 -->
+    FROM room_price_rules rpr <!-- から料金ルールテーブル読み込みデータ。 -->
+    JOIN rooms ON rooms.id = rpr.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    ORDER BY rpr.start_date DESC, rpr.priority ASC, rooms.room_number ASC <!-- 按開始日付、优先级と部屋番号排序。 -->
+  </select> <!-- 終了検索全部料金ルール SQL。 -->
+
+  <select id="findBestRule" resultMap="PriceRuleResultMap"> <!-- 料金ルールヒット検索SQLを定義。 -->
+    SELECT rpr.id, rpr.room_id, null AS room_number, null AS room_name, rpr.rule_name, rpr.start_date, rpr.end_date, rpr.price_per_person, rpr.priority, rpr.active, rpr.note, rpr.created_at, rpr.updated_at <!-- 選択計算金額必要要のルールフィールド。 -->
+    FROM room_price_rules rpr <!-- から料金ルールテーブル読み込みデータ。 -->
+    WHERE rpr.room_id = #{roomId} AND rpr.active = true AND #{stayDate} BETWEEN rpr.start_date AND rpr.end_date <!-- 匹配部屋、启用状態と宿泊日付。 -->
+    ORDER BY rpr.priority ASC, rpr.price_per_person DESC <!-- 优先使用优先级最高且料金更高のルール。 -->
+    LIMIT 1 <!-- のみ返却最优の一条ルール。 -->
+  </select> <!-- 終了検索命中料金ルール SQL。 -->
+
+  <insert id="insert" parameterType="com.example.minshuku.domain.RoomPriceRule" useGeneratedKeys="true" keyProperty="id"> <!-- 料金ルール追加SQLを定義し、主キーを返却。 -->
+    INSERT INTO room_price_rules (room_id, rule_name, start_date, end_date, price_per_person, priority, active, note) <!-- 指定新規登録料金ルール書き込みフィールド。 -->
+    VALUES (#{roomId}, #{ruleName}, #{startDate}, #{endDate}, #{pricePerPerson}, #{priority}, #{active}, #{note}) <!-- 绑定新規登録料金ルールフォーム值。 -->
+  </insert> <!-- 終了新規登録料金ルール SQL。 -->
+
+  <select id="countOverlapping" resultType="int"> <!-- 登録時の日付重複を集計するSQLを定義。 -->
+    SELECT COUNT(*) FROM room_price_rules <!-- から料金ルールテーブル集計重叠记录。 -->
+    WHERE room_id = #{roomId} AND active = true AND start_date &lt;= #{endDate} AND end_date &gt;= #{startDate} <!-- 检查同部屋日付区间重叠。 -->
+  </select> <!-- 終了集計新規登録时日付重叠の料金ルール SQL。 -->
+
+  <delete id="delete"> <!-- 料金ルール単体削除SQLを定義。 -->
+    DELETE FROM room_price_rules WHERE id = #{id} <!-- 根据主キー削除单条记录。 -->
+  </delete> <!-- 終了削除单条料金ルール SQL。 -->
+
+  <delete id="deleteByIds"> <!-- 料金ルール一括削除SQLを定義。 -->
+    DELETE FROM room_price_rules WHERE id IN <!-- 主キー一覧に基づいて複数レコードを削除。 -->
+    <foreach collection="ids" item="id" open="(" close=")" separator=",">#{id}</foreach> <!-- 削除対象の主キーを1件ずつ連結。 -->
+  </delete> <!-- 終了一括削除料金ルール SQL。 -->
+</mapper> <!-- 終了料金ルール Mapper XML。 -->

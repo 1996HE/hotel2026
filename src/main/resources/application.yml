@@ -1,0 +1,28 @@
+server:
+  port: 8000
+
+spring:
+  application:
+    name: minshuku-management
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:55432/minshuku}
+    username: ${DB_USERNAME:minshuku}
+    password: ${DB_PASSWORD:minshuku}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+      continue-on-error: true
+  thymeleaf:
+    cache: false
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.example.minshuku.mapper: debug

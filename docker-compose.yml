@@ -1,0 +1,15 @@
+services: # 定义本地开发需要启动的服务集合。
+  db: # 定义 PostgreSQL 数据库服务。
+    image: postgres:16-alpine # 使用轻量 PostgreSQL 16 镜像。
+    container_name: minshuku-postgres # 固定容器名称方便本地识别。
+    environment: # 定义数据库初始化环境变量。
+      POSTGRES_DB: minshuku # 设置默认数据库名称。
+      POSTGRES_USER: minshuku # 设置默认数据库用户。
+      POSTGRES_PASSWORD: minshuku # 设置默认数据库密码。
+    ports: # 定义宿主机和容器端口映射。
+      - "55432:5432" # 将本机 55432 映射到容器 PostgreSQL 5432。
+    volumes: # 定义数据库持久化卷。
+      - minshuku-postgres-data:/var/lib/postgresql/data # 将数据库文件保存到 Docker 卷。
+
+volumes: # 定义 Compose 管理的数据卷集合。
+  minshuku-postgres-data: # 声明 PostgreSQL 数据持久化卷。

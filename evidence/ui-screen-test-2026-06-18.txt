@@ -1,0 +1,17 @@
+画面自動テスト証跡
+実行日時: 2026-06-18 09:35:00
+対象URL: http://localhost:8000
+
+[OK] dashboard
+{"title": "白馬樹海 予約一覧", "hasBrand": true, "hasReservationList": true, "nav": ["予約一覧", "部屋", "予約", "料金"]}
+
+[OK] rooms
+{"roomNo": "99093444", "activeMissing": false, "deletedShown": true, "hasDeletedHeading": true}
+
+[OK] reservations
+{"invalidHint": "電話番号は000-0000-0000形式で入力してください。", "create": {"hasSuccess": true, "hasGuest": true, "hasCompanion": true, "hasReservationList": true}, "payment": {"hasPaymentMessage": true, "hasPaid": true}, "cancel": {"hasCancelMessage": true, "hasCancelledHeading": true, "cancelledShown": true}, "noContact": {"input": {"roomValue": "117", "phoneDisabled": true, "emailDisabled": true, "noContactInfo": true}, "verify": {"hasSuccess": true, "hasGuest": true, "rowHasGuest": true, "rowHasPhoneLabel": true, "rowHasEmail": false, "bodyPreview": "白馬樹海\n予約一覧\n部屋\n予約\n料金\n予約登録\n予約を登録しました。\n\n部屋\nチェックイン\nチェックアウト\n宿泊者名\nフリガナ\n性別\n年齢\n電話\n電話なし\nメール\nメールなし\n人数\n予約形式\n支払い\nメモ\n予約登録\n予約一覧\n1 / 5\n次へ\n予約番号\t部屋\t予約者\t人数\t連絡先\t予約形式\t同行者\t日程\t金額\t予約状態\t支払い\t操作\nRSV-20260928-511815\t303 花灯り\t画面連絡"}}}
+
+[OK] prices
+{"create": {"hasA": true, "hasB": true, "hasBulkDelete": true}, "delete": {"missingA": true, "missingB": true, "stillHasHeading": true}, "rules": ["自動料金A-093454", "自動料金B-093454"]}
+
+総合結果: OK

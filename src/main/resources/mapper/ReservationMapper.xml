@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?> <!-- 宣言 MyBatis XML 文件编码。 -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd"> <!-- 宣言 MyBatis Mapper DTD。 -->
+<mapper namespace="com.example.minshuku.mapper.ReservationMapper"> <!-- 绑定 Java 予約 Mapper インターフェース。 -->
+  <resultMap id="ReservationResultMap" type="com.example.minshuku.domain.Reservation"> <!-- 定義予約検索結果映射。 -->
+    <id property="id" column="id" /> <!-- 映射予約主キー番号。 -->
+    <result property="reservationNo" column="reservation_no" /> <!-- 映射予約番号。 -->
+    <result property="roomId" column="room_id" /> <!-- 映射予約部屋番号。 -->
+    <result property="roomNumber" column="room_number" /> <!-- 映射結合得への部屋番号。 -->
+    <result property="roomName" column="room_name" /> <!-- 映射結合得への部屋名称。 -->
+    <result property="roomCleaningStatus" column="room_cleaning_status" /> <!-- 映射結合得への部屋清掃状態。 -->
+    <result property="checkInDate" column="check_in_date" /> <!-- 映射宿泊日付。 -->
+    <result property="checkOutDate" column="check_out_date" /> <!-- 映射退房日付。 -->
+    <result property="guestName" column="guest_name" /> <!-- 映射住客姓名。 -->
+    <result property="guestKana" column="guest_kana" /> <!-- 映射住客假名。 -->
+    <result property="guestGender" column="guest_gender" /> <!-- 映射予約客户性别。 -->
+    <result property="guestAge" column="guest_age" /> <!-- 映射予約客户年龄。 -->
+    <result property="guestPhone" column="guest_phone" /> <!-- 映射住客电话。 -->
+    <result property="guestEmail" column="guest_email" /> <!-- 映射住客邮箱。 -->
+    <result property="guestCount" column="guest_count" /> <!-- 映射宿泊人数。 -->
+    <result property="reservationForm" column="reservation_form" /> <!-- 映射予約形式。 -->
+    <result property="paymentStatus" column="payment_status" /> <!-- 映射付款状態。 -->
+    <result property="reservationStatus" column="reservation_status" /> <!-- 映射予約状態。 -->
+    <result property="totalAmount" column="total_amount" /> <!-- 映射预计总金額。 -->
+    <result property="note" column="note" /> <!-- 映射予約メモ。 -->
+    <result property="companionSummary" column="companion_summary" /> <!-- 映射同行者摘要。 -->
+    <result property="createdAt" column="created_at" /> <!-- 映射作成時間。 -->
+    <result property="updatedAt" column="updated_at" /> <!-- 映射更新時間。 -->
+  </resultMap> <!-- 終了予約結果映射。 -->
+
+  <select id="findRecent" resultMap="ReservationResultMap"> <!-- 定義検索近期予約 SQL。 -->
+    SELECT r.id, r.reservation_no, r.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, r.check_in_date, r.check_out_date, r.guest_name, r.guest_kana, r.guest_gender, r.guest_age, r.guest_phone, r.guest_email, r.guest_count, r.reservation_form, r.payment_status, r.reservation_status, r.total_amount, r.note, r.created_at, r.updated_at, COALESCE(string_agg(rg.guest_name || '（' || COALESCE(rg.guest_gender, '未入力') || '・' || COALESCE(CAST(rg.guest_age AS varchar), '未入力') || '歳・' || COALESCE(rg.guest_phone, '連絡先未入力') || '）', '、' ORDER BY rg.id), '') AS companion_summary <!-- 選択予約フィールド、部屋テーブル示フィールドと同行者摘要。 -->
+    FROM reservations r <!-- から予約テーブル読み込みデータ。 -->
+    JOIN rooms ON rooms.id = r.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    LEFT JOIN reservation_guests rg ON rg.reservation_id = r.id <!-- 結合読み込み同行者信息。 -->
+    WHERE r.reservation_status = 'booked' <!-- のみテーブル示未取消の有効予約。 -->
+    GROUP BY r.id, rooms.room_number, rooms.room_name, rooms.cleaning_status <!-- 按予約と部屋テーブル示フィールド分组以聚合同行者。 -->
+    ORDER BY r.check_in_date DESC, r.id DESC <!-- 按宿泊日付倒序と予約番号倒序排序。 -->
+    LIMIT 100 <!-- 限制ページ最多テーブル示一百条近期记录。 -->
+  </select> <!-- 終了検索近期予約 SQL。 -->
+
+  <select id="findRecentPage" resultMap="ReservationResultMap"> <!-- 定義分页検索近期予約 SQL。 -->
+    SELECT r.id, r.reservation_no, r.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, r.check_in_date, r.check_out_date, r.guest_name, r.guest_kana, r.guest_gender, r.guest_age, r.guest_phone, r.guest_email, r.guest_count, r.reservation_form, r.payment_status, r.reservation_status, r.total_amount, r.note, r.created_at, r.updated_at, COALESCE(string_agg(rg.guest_name || '（' || COALESCE(rg.guest_gender, '未入力') || '・' || COALESCE(CAST(rg.guest_age AS varchar), '未入力') || '歳・' || COALESCE(rg.guest_phone, '連絡先未入力') || '）', '、' ORDER BY rg.id), '') AS companion_summary <!-- 選択予約フィールド、部屋テーブル示フィールドと同行者摘要。 -->
+    FROM reservations r <!-- から予約テーブル読み込みデータ。 -->
+    JOIN rooms ON rooms.id = r.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    LEFT JOIN reservation_guests rg ON rg.reservation_id = r.id <!-- 結合読み込み同行者信息。 -->
+    WHERE r.reservation_status = 'booked' <!-- のみテーブル示未取消の有効予約。 -->
+    GROUP BY r.id, rooms.room_number, rooms.room_name, rooms.cleaning_status <!-- 按予約と部屋テーブル示フィールド分组以聚合同行者。 -->
+    ORDER BY r.check_in_date DESC, r.id DESC <!-- 按宿泊日付倒序と予約番号倒序排序。 -->
+    LIMIT #{limit} OFFSET #{offset} <!-- 按页大小と偏移量分页。 -->
+  </select> <!-- 終了分页検索近期予約 SQL。 -->
+
+  <select id="findCancelled" resultMap="ReservationResultMap"> <!-- 定義検索取消予約 SQL。 -->
+    SELECT r.id, r.reservation_no, r.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, r.check_in_date, r.check_out_date, r.guest_name, r.guest_kana, r.guest_gender, r.guest_age, r.guest_phone, r.guest_email, r.guest_count, r.reservation_form, r.payment_status, r.reservation_status, r.total_amount, r.note, r.created_at, r.updated_at, COALESCE(string_agg(rg.guest_name || '（' || COALESCE(rg.guest_gender, '未入力') || '・' || COALESCE(CAST(rg.guest_age AS varchar), '未入力') || '歳・' || COALESCE(rg.guest_phone, '連絡先未入力') || '）', '、' ORDER BY rg.id), '') AS companion_summary <!-- 選択取消予約フィールド、部屋テーブル示フィールドと同行者摘要。 -->
+    FROM reservations r <!-- から予約テーブル読み込みデータ。 -->
+    JOIN rooms ON rooms.id = r.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    LEFT JOIN reservation_guests rg ON rg.reservation_id = r.id <!-- 結合読み込み同行者信息。 -->
+    WHERE r.reservation_status = 'cancelled' <!-- のみテーブル示取消予約。 -->
+    GROUP BY r.id, rooms.room_number, rooms.room_name, rooms.cleaning_status <!-- 按予約と部屋テーブル示フィールド分组以聚合同行者。 -->
+    ORDER BY r.updated_at DESC, r.id DESC <!-- 按取消更新時間倒序排序。 -->
+    LIMIT 100 <!-- 限制ページ最多テーブル示一百条取消记录。 -->
+  </select> <!-- 終了検索取消予約 SQL。 -->
+
+  <select id="findCheckedOut" resultMap="ReservationResultMap"> <!-- 定義検索完了退房予約 SQL。 -->
+    SELECT cr.id, cr.reservation_no, cr.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, cr.check_in_date, cr.check_out_date, cr.guest_name, cr.guest_kana, cr.guest_gender, cr.guest_age, cr.guest_phone, cr.guest_email, cr.guest_count, cr.reservation_form, cr.payment_status, cr.reservation_status, cr.total_amount, cr.note, cr.created_at, cr.updated_at, COALESCE(string_agg(rg.guest_name || '（' || COALESCE(rg.guest_gender, '未入力') || '・' || COALESCE(CAST(rg.guest_age AS varchar), '未入力') || '歳・' || COALESCE(rg.guest_phone, '連絡先未入力') || '）', '、' ORDER BY rg.id), '') AS companion_summary <!-- 選択完了退房フィールド、部屋テーブル示フィールドと同行者摘要。 -->
+    FROM checkout_reservations cr <!-- から退房視图読み込みデータ。 -->
+    JOIN rooms ON rooms.id = cr.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    LEFT JOIN reservation_guests rg ON rg.reservation_id = cr.id <!-- 結合読み込み同行者信息。 -->
+    GROUP BY cr.id, cr.reservation_no, cr.room_id, cr.check_in_date, cr.check_out_date, cr.guest_name, cr.guest_kana, cr.guest_gender, cr.guest_age, cr.guest_phone, cr.guest_email, cr.guest_count, cr.reservation_form, cr.payment_status, cr.reservation_status, cr.total_amount, cr.note, cr.created_at, cr.updated_at, rooms.room_number, rooms.room_name, rooms.cleaning_status <!-- 按予約と部屋テーブル示フィールド分组以聚合同行者。 -->
+    ORDER BY cr.updated_at DESC, cr.id DESC <!-- 按退房更新時間倒序排序。 -->
+    LIMIT 100 <!-- 限制ページ最多テーブル示一百条退房记录。 -->
+  </select> <!-- 終了検索完了退房予約 SQL。 -->
+
+  <select id="findCancelledPage" resultMap="ReservationResultMap"> <!-- 定義分页検索取消予約 SQL。 -->
+    SELECT r.id, r.reservation_no, r.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, r.check_in_date, r.check_out_date, r.guest_name, r.guest_kana, r.guest_gender, r.guest_age, r.guest_phone, r.guest_email, r.guest_count, r.reservation_form, r.payment_status, r.reservation_status, r.total_amount, r.note, r.created_at, r.updated_at, COALESCE(string_agg(rg.guest_name || '（' || COALESCE(rg.guest_gender, '未入力') || '・' || COALESCE(CAST(rg.guest_age AS varchar), '未入力') || '歳・' || COALESCE(rg.guest_phone, '連絡先未入力') || '）', '、' ORDER BY rg.id), '') AS companion_summary <!-- 選択取消予約フィールド、部屋テーブル示フィールドと同行者摘要。 -->
+    FROM reservations r <!-- から予約テーブル読み込みデータ。 -->
+    JOIN rooms ON rooms.id = r.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    LEFT JOIN reservation_guests rg ON rg.reservation_id = r.id <!-- 結合読み込み同行者信息。 -->
+    WHERE r.reservation_status = 'cancelled' <!-- のみテーブル示取消予約。 -->
+    GROUP BY r.id, rooms.room_number, rooms.room_name, rooms.cleaning_status <!-- 按予約と部屋テーブル示フィールド分组以聚合同行者。 -->
+    ORDER BY r.updated_at DESC, r.id DESC <!-- 按取消更新時間倒序排序。 -->
+    LIMIT #{limit} OFFSET #{offset} <!-- 按页大小と偏移量分页。 -->
+  </select> <!-- 終了分页検索取消予約 SQL。 -->
+
+  <select id="findCheckedOutPage" resultMap="ReservationResultMap"> <!-- 定義分页検索完了退房予約 SQL。 -->
+    SELECT cr.id, cr.reservation_no, cr.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, cr.check_in_date, cr.check_out_date, cr.guest_name, cr.guest_kana, cr.guest_gender, cr.guest_age, cr.guest_phone, cr.guest_email, cr.guest_count, cr.reservation_form, cr.payment_status, cr.reservation_status, cr.total_amount, cr.note, cr.created_at, cr.updated_at, COALESCE(string_agg(rg.guest_name || '（' || COALESCE(rg.guest_gender, '未入力') || '・' || COALESCE(CAST(rg.guest_age AS varchar), '未入力') || '歳・' || COALESCE(rg.guest_phone, '連絡先未入力') || '）', '、' ORDER BY rg.id), '') AS companion_summary <!-- 選択完了退房フィールド、部屋テーブル示フィールドと同行者摘要。 -->
+    FROM checkout_reservations cr <!-- から退房視图読み込みデータ。 -->
+    JOIN rooms ON rooms.id = cr.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    LEFT JOIN reservation_guests rg ON rg.reservation_id = cr.id <!-- 結合読み込み同行者信息。 -->
+    GROUP BY cr.id, cr.reservation_no, cr.room_id, cr.check_in_date, cr.check_out_date, cr.guest_name, cr.guest_kana, cr.guest_gender, cr.guest_age, cr.guest_phone, cr.guest_email, cr.guest_count, cr.reservation_form, cr.payment_status, cr.reservation_status, cr.total_amount, cr.note, cr.created_at, cr.updated_at, rooms.room_number, rooms.room_name, rooms.cleaning_status <!-- 按予約と部屋テーブル示フィールド分组以聚合同行者。 -->
+    ORDER BY cr.updated_at DESC, cr.id DESC <!-- 按退房更新時間倒序排序。 -->
+    LIMIT #{limit} OFFSET #{offset} <!-- 按页大小と偏移量分页。 -->
+  </select> <!-- 終了分页検索完了退房予約 SQL。 -->
+
+  <select id="countRecent" resultType="int"> <!-- 定義集計有効予約总数 SQL。 -->
+    SELECT COUNT(*) FROM reservations WHERE reservation_status = 'booked' <!-- 返却未取消の予約数量。 -->
+  </select> <!-- 終了集計有効予約总数 SQL。 -->
+
+  <select id="countCancelled" resultType="int"> <!-- 定義集計取消予約总数 SQL。 -->
+    SELECT COUNT(*) FROM reservations WHERE reservation_status = 'cancelled' <!-- 返却完了取消の予約数量。 -->
+  </select> <!-- 終了集計取消予約总数 SQL。 -->
+
+  <select id="countCheckedOut" resultType="int"> <!-- 定義集計完了退房予約总数 SQL。 -->
+    SELECT COUNT(*) FROM checkout_reservations <!-- 返却完了退房の予約数量。 -->
+  </select> <!-- 終了集計完了退房予約总数 SQL。 -->
+
+  <select id="findDueCheckouts" resultMap="ReservationResultMap"> <!-- 定義検索必要要自动退房の予約 SQL。 -->
+    SELECT r.id, r.reservation_no, r.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, r.check_in_date, r.check_out_date, r.guest_name, r.guest_kana, r.guest_gender, r.guest_age, r.guest_phone, r.guest_email, r.guest_count, r.reservation_form, r.payment_status, r.reservation_status, r.total_amount, r.note, r.created_at, r.updated_at, '' AS companion_summary <!-- 選択必要要自动退房の予約基本フィールド。 -->
+    FROM reservations r <!-- から予約テーブル読み込みデータ。 -->
+    JOIN rooms ON rooms.id = r.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    WHERE r.reservation_status = 'booked' AND r.check_out_date &lt;= CURRENT_DATE <!-- のみ返却へ期应退房の有効予約。 -->
+    ORDER BY r.check_out_date, r.id <!-- 按退房日付と予約番号排序。 -->
+  </select> <!-- 終了検索必要要自动退房の予約 SQL。 -->
+
+  <select id="findById" resultMap="ReservationResultMap"> <!-- 定義按主キー検索予約 SQL。 -->
+    SELECT r.id, r.reservation_no, r.room_id, rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status, r.check_in_date, r.check_out_date, r.guest_name, r.guest_kana, r.guest_gender, r.guest_age, r.guest_phone, r.guest_email, r.guest_count, r.reservation_form, r.payment_status, r.reservation_status, r.total_amount, r.note, r.created_at, r.updated_at, '' AS companion_summary <!-- 選択单个予約の基本フィールド。 -->
+    FROM reservations r <!-- から予約テーブル読み込みデータ。 -->
+    JOIN rooms ON rooms.id = r.room_id <!-- 結合読み込み部屋番号と名称。 -->
+    WHERE r.id = #{id} <!-- 根据予約主キー読み込み单条予約。 -->
+  </select> <!-- 終了按主キー検索予約 SQL。 -->
+
+  <insert id="insert" parameterType="com.example.minshuku.domain.Reservation" useGeneratedKeys="true" keyProperty="id"> <!-- 定義新規登録予約 SQL と回填主キー。 -->
+    INSERT INTO reservations (reservation_no, room_id, check_in_date, check_out_date, guest_name, guest_kana, guest_gender, guest_age, guest_phone, guest_email, guest_count, reservation_form, payment_status, reservation_status, total_amount, note) <!-- 指定新規登録予約書き込みフィールド。 -->
+    VALUES (#{reservationNo}, #{roomId}, #{checkInDate}, #{checkOutDate}, #{guestName}, #{guestKana}, #{guestGender}, #{guestAge}, #{guestPhone}, #{guestEmail}, #{guestCount}, #{reservationForm}, #{paymentStatus}, #{reservationStatus}, #{totalAmount}, #{note}) <!-- 绑定新規登録予約フォームと業務計算值。 -->
+  </insert> <!-- 終了新規登録予約 SQL。 -->
+
+  <select id="countOverlapping" resultType="int"> <!-- 定義集計日付重叠予約 SQL。 -->
+    SELECT COUNT(*) FROM reservations WHERE room_id = #{roomId} AND reservation_status = 'booked' AND check_in_date &lt; #{checkOutDate} AND check_out_date &gt; #{checkInDate} <!-- 使用 [宿泊日, 退房日) ルール检查同部屋日付冲突。 -->
+  </select> <!-- 終了集計日付重叠予約 SQL。 -->
+
+  <select id="countBooked" resultType="int"> <!-- 定義集計有効予約 SQL。 -->
+    SELECT COUNT(*) FROM reservations WHERE reservation_status = 'booked' <!-- 返却未取消の予約数量。 -->
+  </select> <!-- 終了集計有効予約 SQL。 -->
+
+  <update id="updatePaymentStatus"> <!-- 定義更新付款状態 SQL。 -->
+    UPDATE reservations SET payment_status = #{paymentStatus}, updated_at = now() WHERE id = #{id} <!-- 更新付款状態と更新時間。 -->
+  </update> <!-- 終了更新付款状態 SQL。 -->
+
+  <update id="updateReservationStatus"> <!-- 定義更新予約状態 SQL。 -->
+    UPDATE reservations SET reservation_status = #{reservationStatus}, updated_at = now() WHERE id = #{id} <!-- 更新予約状態と更新時間。 -->
+  </update> <!-- 終了更新予約状態 SQL。 -->
+
+  <update id="markCheckedOut"> <!-- 定義標记退房完成 SQL。 -->
+    UPDATE reservations SET reservation_status = 'checked_out', updated_at = now() WHERE id = #{id} <!-- を予約標记に退房完成と更新時間。 -->
+  </update> <!-- 終了標记退房完成 SQL。 -->
+
+  <update id="cancel"> <!-- 定義取消予約 SQL。 -->
+    UPDATE reservations SET reservation_status = 'cancelled', updated_at = now() WHERE id = #{id} <!-- を予約標记に取消と更新時間。 -->
+  </update> <!-- 終了取消予約 SQL。 -->
+</mapper> <!-- 終了予約 Mapper XML。 -->
