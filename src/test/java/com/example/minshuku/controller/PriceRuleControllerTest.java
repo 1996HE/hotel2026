@@ -1,130 +1,190 @@
-package com.example.minshuku.controller; // 宣言料金ページテスト所属パッケージ。
+package com.example.minshuku.controller;
 
-import static org.hamcrest.Matchers.containsString; // 読み込み字符串パッケージ含断言工具。
-import static org.mockito.ArgumentMatchers.any; // 読み込み Mockito 任意パラメータ匹配器。
-import static org.mockito.Mockito.doThrow; // 読み込み Mockito 例外行に设定メソッド。
-import static org.mockito.Mockito.verify; // 読み込み Mockito 呼び出し検証メソッド。
-import static org.mockito.Mockito.when; // 読み込み Mockito 行に设定メソッド。
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get; // 読み込み GET リクエスト構築メソッド。
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post; // 読み込み POST リクエスト構築メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content; // 読み込みレスポンスコンテンツ断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash; // 読み込み flash 断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model; // 読み込みモデル断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl; // 読み込みリダイレクト URL 断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status; // 読み込み HTTP 状態断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view; // 読み込み視图名称断言メソッド。
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-import com.example.minshuku.domain.Room; // 読み込み部屋エンティティ用構築ページデータ。
-import com.example.minshuku.domain.RoomPriceRule; // 読み込み料金ルールエンティティ用構築ページデータ。
-import com.example.minshuku.service.RoomPriceRuleService; // 読み込み被 mock の料金サービス。
-import com.example.minshuku.service.RoomService; // 読み込み被 mock の部屋サービス。
-import java.math.BigDecimal; // 読み込み金額型用テストデータ。
-import java.time.LocalDate; // 読み込み日付型用テストデータ。
-import java.util.List; // 読み込み一覧型用テストデータ。
-import org.junit.jupiter.api.Test; // 読み込み JUnit テストアノテーション。
-import org.springframework.beans.factory.annotation.Autowired; // 読み込みテスト依赖注入アノテーション。
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest; // 読み込み MVC 切り出しテストアノテーション。
-import org.springframework.boot.test.mock.mockito.MockBean; // 読み込み Spring Boot mock bean アノテーション。
-import org.springframework.test.web.servlet.MockMvc; // 読み込み MockMvc テスト宿泊者端。
+import com.example.minshuku.config.SecurityConfig;
+import com.example.minshuku.domain.Room;
+import com.example.minshuku.domain.RoomPriceRule;
+import com.example.minshuku.service.RoomPriceRuleService;
+import com.example.minshuku.service.RoomService;
+import com.example.minshuku.support.LoggedTest;
+import com.example.minshuku.support.TestSetData;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(PriceRuleController.class) // のみ加载料金コントローラーと MVC 相关组件。
-class PriceRuleControllerTest { // 料金ページコントローラーテストを定義。
-  @Autowired private MockMvc mockMvc; // 注入 MockMvc 用模拟 HTTP リクエスト。
-  @MockBean private RoomPriceRuleService priceRuleService; // 注入料金サービス mock。
-  @MockBean private RoomService roomService; // 注入部屋サービス mock。
+@WebMvcTest(PriceRuleController.class)
+@Import(SecurityConfig.class)
+@LoggedTest
+@DisplayName("料金管理画面コントローラー")
+/**
+ * 料金ルール画面の表示と単体削除・一括削除のルーティングを確認する WebMvc テスト。
+ */
+class PriceRuleControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+    @MockBean
+    private RoomPriceRuleService priceRuleService;
+    @MockBean
+    private RoomService roomService;
 
-  @Test // 標记正常表示料金管理ページのテスト。
-  void pricesPageShowsRulesNormally() throws Exception { // テスト料金ページ正常渲染。
-    when(priceRuleService.findAllWithRoom()).thenReturn(List.of(sampleRule())); // 准备料金ルール一覧。
-    when(roomService.findActive()).thenReturn(List.of(sampleRoom())); // 准备有効部屋一覧。
-    mockMvc.perform(get("/prices")) // リクエスト料金管理ページ。
-      .andExpect(status().isOk()) // 断言ページレスポンス成功。
-      .andExpect(view().name("prices")) // 断言返却 prices 模板。
-      .andExpect(model().attributeExists("rules", "rooms", "rule")) // 断言モデルデータ齐全。
-      .andExpect(content().string(containsString("料金ルール一覧"))) // 断言料金ルール一覧標題表示。
-      .andExpect(content().string(containsString("夏料金"))); // 断言料金ルール名称表示。
-  }
+    /**
+     * テストケース名：test_01 prices Page Shows Rules Normally
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待値と実際値が一致すること。
+     */
+    @DisplayName("test_01 prices Page Shows Rules Normally")
+    @Test
+    void pricesPageShowsRulesNormally() throws Exception {
+        mockMvc.perform(get("/prices"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("app"))
+                .andExpect(content().string(containsString("<div id=\"root\"></div>")))
+                .andExpect(content().string(containsString("/js/app.js")));
+    }
 
-  @Test // 標记料金ルール登録正常パステスト。
-  void createPriceRuleRedirectsWithSuccessMessage() throws Exception { // テスト料金ルール登録成功。
-    mockMvc.perform(post("/prices") // 送信料金ルールフォーム。
-        .param("roomId", "1") // 設定部屋番号。
-        .param("ruleName", "夏料金") // 設定ルール名称。
-        .param("startDate", "2026-07-01") // 設定開始日付。
-        .param("endDate", "2026-08-31") // 設定終了日付。
-        .param("pricePerPerson", "12000") // 設定单价。
-        .param("priority", "1") // 設定优先度。
-        .param("active", "true")) // 設定有効状態。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/prices")) // 断言リダイレクトへ料金ページ。
-      .andExpect(flash().attribute("message", "料金ルールを登録しました。")); // 断言成功メッセージ。
-    verify(priceRuleService).create(any(RoomPriceRule.class)); // 検証呼び出し料金ルール登録サービス。
-  }
+    /**
+     * テストケース名：test_02 create Price Rule Redirects With Success Message
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_02 create Price Rule Redirects With Success Message")
+    @Test
+    void createPriceRuleRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/prices").with(csrf())
+                .param("roomId", "1")
+                .param("ruleName", "夏料金")
+                .param("startDate", "2026-07-01")
+                .param("endDate", "2026-08-31")
+                .param("pricePerPerson", "12000")
+                .param("priority", "1")
+                .param("active", "true"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/prices"))
+                .andExpect(flash().attribute("message", "料金ルールを登録しました。"));
+        verify(priceRuleService).create(any(RoomPriceRule.class));
+    }
 
-  @Test // 標记料金ルール登録エラーパステスト。
-  void createPriceRuleShowsValidationErrorWhenServiceRejects() throws Exception { // テスト料金ルール検証失败时表示エラー。
-    doThrow(new IllegalArgumentException("開始日は終了日以前にしてください。")).when(priceRuleService).create(any(RoomPriceRule.class)); // 准备サービス抛出検証例外。
-    mockMvc.perform(post("/prices").param("roomId", "1")) // 送信会被拒绝の料金ルール。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/prices")) // 断言リダイレクトへ料金ページ。
-      .andExpect(flash().attribute("error", "開始日は終了日以前にしてください。")); // 断言エラーメッセージ。
-  }
+    /**
+     * テストケース名：test_03 create Price Rule Shows Validation Error When Service Rejects
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_03 create Price Rule Shows Validation Error When Service Rejects")
+    @Test
+    void createPriceRuleShowsValidationErrorWhenServiceRejects() throws Exception {
+        doThrow(new IllegalArgumentException("開始日は終了日以前にしてください。")).when(priceRuleService)
+                .create(any(RoomPriceRule.class));
+        mockMvc.perform(post("/prices").with(csrf()).param("roomId", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/prices"))
+                .andExpect(flash().attribute("error", "開始日は終了日以前にしてください。"));
+    }
 
-  @Test // 標记料金ルール削除成功テスト。
-  void deletePriceRuleRedirectsWithSuccessMessage() throws Exception { // テスト单条削除成功。
-    mockMvc.perform(post("/prices/10/delete")) // 送信削除リクエスト。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/prices")) // 断言リダイレクト回ページ。
-      .andExpect(flash().attribute("message", "料金ルールを削除しました。")); // 断言成功メッセージ。
-    verify(priceRuleService).delete(10); // 検証削除サービス被呼び出し。
-  }
+    /**
+     * テストケース名：test_04 delete Price Rule Redirects With Success Message
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_04 delete Price Rule Redirects With Success Message")
+    @Test
+    void deletePriceRuleRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/prices/10/delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/prices"))
+                .andExpect(flash().attribute("message", "料金ルールを削除しました。"));
+        verify(priceRuleService).delete(10);
+    }
 
-  @Test // 標记料金ルール旧削除パス兼容テスト。
-  void deletePriceRuleAlsoWorksOnLegacyPath() throws Exception { // テスト旧版削除パス也能正常工作。
-    mockMvc.perform(post("/prices/10")) // 送信旧版削除リクエスト。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/prices")) // 断言リダイレクト回ページ。
-      .andExpect(flash().attribute("message", "料金ルールを削除しました。")); // 断言成功メッセージ。
-    verify(priceRuleService).delete(10); // 検証削除サービス被呼び出し。
-  }
+    /**
+     * テストケース名：test_05 delete Price Rule Also Works On Legacy Path
+     * テスト条件：許可対象外または source-like path のアクセス条件を準備する。
+     * テスト要望：不正または想定外のパスを安全に拒否すること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_05 delete Price Rule Also Works On Legacy Path")
+    @Test
+    void deletePriceRuleAlsoWorksOnLegacyPath() throws Exception {
+        mockMvc.perform(post("/prices/10").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/prices"))
+                .andExpect(flash().attribute("message", "料金ルールを削除しました。"));
+        verify(priceRuleService).delete(10);
+    }
 
-  @Test // 標记料金ルール一括削除成功テスト。
-  void deleteSelectedPriceRulesRedirectsWithSuccessMessage() throws Exception { // テスト一括削除成功。
-    mockMvc.perform(post("/prices/delete-selected") // 送信一括削除リクエスト。
-        .param("ids", "10", "11")) // 選択两条ルール番号。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/prices")) // 断言リダイレクト回ページ。
-      .andExpect(flash().attribute("message", "料金ルールを削除しました。")); // 断言成功メッセージ。
-    verify(priceRuleService).deleteByIds(List.of(10, 11)); // 検証一括削除サービス被呼び出し。
-  }
+    /**
+     * テストケース名：test_06 delete Selected Price Rules Redirects With Success Message
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_06 delete Selected Price Rules Redirects With Success Message")
+    @Test
+    void deleteSelectedPriceRulesRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/prices/delete-selected").with(csrf())
+                .param("ids", "10", "11"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/prices"))
+                .andExpect(flash().attribute("message", "料金ルールを削除しました。"));
+        verify(priceRuleService).deleteByIds(List.of(10, 11));
+    }
 
-  @Test // 標记料金ルール一括削除空選択テスト。
-  void deleteSelectedPriceRulesShowsValidationErrorWhenNothingSelected() throws Exception { // テスト未選択ルール时のエラーメッセージ。
-    doThrow(new IllegalArgumentException("料金ルールを1件以上選択してください。")).when(priceRuleService).deleteByIds(any()); // 准备サービス抛出検証例外。
-    mockMvc.perform(post("/prices/delete-selected")) // 送信空の一括削除リクエスト。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/prices")) // 断言リダイレクト回ページ。
-      .andExpect(flash().attribute("error", "料金ルールを1件以上選択してください。")); // 断言エラーメッセージ。
-  }
+    /**
+     * テストケース名：test_07 delete Selected Price Rules Shows Validation Error When Nothing Selected
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_07 delete Selected Price Rules Shows Validation Error When Nothing Selected")
+    @Test
+    void deleteSelectedPriceRulesShowsValidationErrorWhenNothingSelected() throws Exception {
+        doThrow(new IllegalArgumentException("料金ルールを1件以上選択してください。")).when(priceRuleService).deleteByIds(any());
+        mockMvc.perform(post("/prices/delete-selected").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/prices"))
+                .andExpect(flash().attribute("error", "料金ルールを1件以上選択してください。"));
+    }
 
-  private RoomPriceRule sampleRule() { // 定義構築料金ルールテストデータのメソッド。
-    RoomPriceRule rule = new RoomPriceRule(); // 作成料金ルールオブジェクト。
-    rule.setRuleName("夏料金"); // 設定ルール名称。
-    rule.setRoomNumber("101"); // 設定部屋番号。
-    rule.setRoomName("桜の間"); // 設定部屋名称。
-    rule.setStartDate(LocalDate.of(2026, 7, 1)); // 設定開始日付。
-    rule.setEndDate(LocalDate.of(2026, 8, 31)); // 設定終了日付。
-    rule.setPricePerPerson(BigDecimal.valueOf(12000)); // 設定单价。
-    rule.setPriority(1); // 設定优先度。
-    rule.setActive(true); // 設定有効状態。
-    return rule; // 返却料金ルールオブジェクト。
-  }
+    /**
+     * テストケース名：test_08 post Without Csrf Token Is Rejected
+     * テスト条件：CSRF token を付与しない POST リクエストを準備する。
+     * テスト要望：CSRF token がない更新系リクエストを拒否すること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_08 post Without Csrf Token Is Rejected")
+    @Test
+    void postWithoutCsrfTokenIsRejected() throws Exception {
+        mockMvc.perform(post("/prices").param("roomId", "1"))
+                .andExpect(status().isForbidden());
+    }
 
-  private Room sampleRoom() { // 定義構築部屋テストデータのメソッド。
-    Room room = new Room(); // 作成部屋オブジェクト。
-    room.setId(1); // 設定部屋主キー。
-    room.setRoomNumber("101"); // 設定部屋番号。
-    room.setRoomName("桜の間"); // 設定部屋名称。
-    return room; // 返却部屋オブジェクト。
-  }
+    private RoomPriceRule sampleRule() {
+        return TestSetData.priceRule("summer").toDomain();
+    }
+
+    private Room sampleRoom() {
+        Room room = TestSetData.room("bookable").toDomain();
+        room.setId(1);
+        return room;
+    }
 }

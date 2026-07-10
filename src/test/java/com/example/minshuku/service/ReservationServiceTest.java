@@ -1,191 +1,434 @@
-package com.example.minshuku.service; // 宣言予約サービステスト所属パッケージ。
+package com.example.minshuku.service;
 
-import static org.assertj.core.api.Assertions.assertThat; // 読み込み AssertJ 普通断言工具。
-import static org.assertj.core.api.Assertions.assertThatThrownBy; // 読み込み AssertJ 例外断言工具。
-import static org.mockito.ArgumentMatchers.any; // 読み込み Mockito 任意パラメータ匹配器。
-import static org.mockito.Mockito.never; // 読み込み Mockito 未呼び出し検証工具。
-import static org.mockito.Mockito.verify; // 読み込み Mockito 呼び出し検証工具。
-import static org.mockito.Mockito.when; // 読み込み Mockito 行に设定工具。
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import com.example.minshuku.domain.Reservation; // 読み込み予約エンティティ用構築テスト入力。
-import com.example.minshuku.domain.ReservationGuest; // 読み込み同行者エンティティ用検証保存コンテンツ。
-import com.example.minshuku.domain.Room; // 読み込み部屋エンティティ用構築部屋状態。
-import com.example.minshuku.mapper.ReservationGuestMapper; // 読み込み同行者 Mapper mock 型。
-import com.example.minshuku.mapper.ReservationMapper; // 読み込み予約 Mapper mock 型。
-import com.example.minshuku.mapper.RoomMapper; // 読み込み部屋 Mapper mock 型。
-import com.example.minshuku.mapper.RoomPriceRuleMapper; // 読み込み料金ルール Mapper mock 型。
-import java.math.BigDecimal; // 読み込み金額型用設定部屋基本料金。
-import java.time.LocalDate; // 読み込み日付型用設定宿泊期间。
-import java.util.List; // 読み込み一覧型用同行者パラメータ。
-import org.junit.jupiter.api.BeforeEach; // 読み込みテスト前置処理アノテーション。
-import org.junit.jupiter.api.Test; // 読み込み JUnit テストアノテーション。
-import org.junit.jupiter.api.extension.ExtendWith; // 読み込み JUnit 扩展アノテーション。
-import org.mockito.ArgumentCaptor; // 読み込み Mockito パラメータ捕获器。
-import org.mockito.Mock; // 読み込み Mockito mock アノテーション。
-import org.mockito.junit.jupiter.MockitoExtension; // 読み込み Mockito JUnit 扩展。
+import com.example.minshuku.domain.Reservation;
+import com.example.minshuku.domain.ReservationGuest;
+import com.example.minshuku.domain.Room;
+import com.example.minshuku.mapper.ReservationGuestMapper;
+import com.example.minshuku.mapper.ReservationMapper;
+import com.example.minshuku.mapper.RoomMapper;
+import com.example.minshuku.mapper.RoomPriceRuleMapper;
+import com.example.minshuku.support.LoggedTest;
+import com.example.minshuku.support.TestSetData;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.TimeZone;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class) // 有効 Mockito mock 初始化。
-class ReservationServiceTest { // 予約サービス業務テストを定義。
-  @Mock private ReservationMapper reservationMapper; // 作成予約 Mapper mock。
-  @Mock private ReservationGuestMapper reservationGuestMapper; // 作成同行者 Mapper mock。
-  @Mock private RoomMapper roomMapper; // 作成部屋 Mapper mock。
-  @Mock private RoomPriceRuleMapper priceRuleMapper; // 作成料金ルール Mapper mock。
-  private ReservationService reservationService; // 保存テスト対象のの予約サービスインスタンス。
+@ExtendWith(MockitoExtension.class)
+@LoggedTest
+@DisplayName("予約サービス")
+/**
+ * 予約サービスの境界値、状態遷移、料金計算を検証する単体テスト。
+ */
+class ReservationServiceTest {
+    private static final LocalDate BUSINESS_DATE = LocalDate.of(2026, 7, 8);
 
-  @BeforeEach // 標记每个テスト执行前起動。
-  void setUp() { // 定義テスト前置処理。
-    reservationService = new ReservationService(reservationMapper, reservationGuestMapper, roomMapper, priceRuleMapper); // 用 mock 依赖作成サービスインスタンス。
-  }
+    @Mock
+    private ReservationMapper reservationMapper;
+    @Mock
+    private ReservationGuestMapper reservationGuestMapper;
+    @Mock
+    private RoomMapper roomMapper;
+    @Mock
+    private RoomPriceRuleMapper priceRuleMapper;
+    private ReservationService reservationService;
 
-  @Test // 標记正常予約登録テスト。
-  void createRegistersReservationAndCompanionNormally() { // テスト空室且清掃済部屋可能以成功予約。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    Room room = sampleBookableRoom(); // 構築可能予約部屋。
-    when(roomMapper.findById(1)).thenReturn(room); // 准备部屋検索返却值。
-    when(reservationMapper.countOverlapping(1, reservation.getCheckInDate(), reservation.getCheckOutDate())).thenReturn(0); // 准备無重複予約結果。
-    reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000")); // 执行予約登録。
-    ArgumentCaptor<Reservation> reservationCaptor = ArgumentCaptor.forClass(Reservation.class); // 作成予約パラメータ捕获器。
-    ArgumentCaptor<ReservationGuest> guestCaptor = ArgumentCaptor.forClass(ReservationGuest.class); // 作成同行者パラメータ捕获器。
-    verify(reservationMapper).insert(reservationCaptor.capture()); // 検証予約レコード被書き込みと捕获コンテンツ。
-    verify(reservationGuestMapper).insert(guestCaptor.capture()); // 検証同行者レコード被書き込みと捕获コンテンツ。
-    verify(roomMapper).updateStatuses(1, "reserved", "cleaned"); // 検証部屋状態被改に予約済。
-    assertThat(reservationCaptor.getValue().getReservationStatus()).isEqualTo("booked"); // 断言予約状態に完了予約。
-    assertThat(reservationCaptor.getValue().getReservationStatusLabel()).isEqualTo("予約済"); // 断言予約状態ラベル可能直接用画面表示。
-    assertThat(reservationCaptor.getValue().getPaymentStatus()).isEqualTo("unpaid"); // 断言缺省支払い状態に未支払い。
-    assertThat(reservationCaptor.getValue().getPaymentStatusLabel()).isEqualTo("未払い"); // 断言支払い状態ラベル可能直接用画面表示。
-    assertThat(reservationCaptor.getValue().getReservationForm()).isEqualTo("公式"); // 断言缺省予約形式に公式。
-    assertThat(reservationCaptor.getValue().getTotalAmount()).isEqualByComparingTo("24000"); // 断言一晚两人の金額計算正しい。
-    assertThat(guestCaptor.getValue().getGuestName()).isEqualTo("佐藤花子"); // 断言同行者氏名保存正しい。
-    assertThat(guestCaptor.getValue().getGuestKana()).isEqualTo("サトウハナコ"); // 断言同行者仮名保存正しい。
-    assertThat(guestCaptor.getValue().getGuestGender()).isEqualTo("女性"); // 断言同行者性別保存正しい。
-    assertThat(guestCaptor.getValue().getGuestAge()).isEqualTo(28); // 断言同行者年齢保存正しい。
-    assertThat(guestCaptor.getValue().getGuestPhone()).isEqualTo("080-0000-0000"); // 断言同行者電話保存正しい。
-  }
+    @BeforeEach
+    void setUp() {
+        reservationService = new ReservationService(reservationMapper, reservationGuestMapper, roomMapper,
+                priceRuleMapper);
+        lenient().when(reservationMapper.currentDate()).thenReturn(BUSINESS_DATE);
+        lenient().when(reservationMapper.nextReservationSequence()).thenReturn(1L);
+    }
 
-  @Test // 標记重複予約エラーテスト。
-  void createRejectsDuplicateReservationForSameRoomAndDate() { // テスト同部屋日付重叠时非可能重複予約。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    when(roomMapper.findById(1)).thenReturn(sampleBookableRoom()); // 准备可能予約部屋返却值。
-    when(reservationMapper.countOverlapping(1, reservation.getCheckInDate(), reservation.getCheckOutDate())).thenReturn(1); // 准备完了有重叠予約結果。
-    assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000"))) // 执行と断言例外。
-      .isInstanceOf(IllegalArgumentException.class) // 断言例外型に業務検証例外。
-      .hasMessage("指定期間はすでに予約されています。"); // 断言メッセージに重複予約。
-    verify(reservationMapper, never()).insert(any(Reservation.class)); // 断言重複予約非会書き込み予約テーブル。
-    verify(reservationGuestMapper, never()).insert(any(ReservationGuest.class)); // 断言重複予約非会書き込み同行者テーブル。
-    verify(roomMapper, never()).updateStatuses(any(), any(), any()); // 断言重複予約非会更新部屋状態。
-  }
+    /**
+     * テストケース名：test_01 current Date Uses System Date From Mapper Instead Of Local Environment Date
+     * テスト条件：システム日付とローカル環境日付が異なる状態を準備する。
+     * テスト要望：端末側のローカル時刻に依存せず、システム日付基準で予約可否を判定すること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_01 current Date Uses System Date From Mapper Instead Of Local Environment Date")
+    @Test
+    void currentDateUsesSystemDateFromMapperInsteadOfLocalEnvironmentDate() {
+        TimeZone originalTimeZone = TimeZone.getDefault();
+        LocalDate systemDate = LocalDate.of(2099, 1, 1);
+        when(reservationMapper.currentDate()).thenReturn(systemDate);
 
-  @Test // 標记非空室エラーテスト。
-  void createRejectsRoomThatIsNotVacant() { // テスト非是空室の部屋非可能予約。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    Room room = sampleBookableRoom(); // 構築基本部屋。
-    room.setOccupancyStatus("occupied"); // 設定部屋に使用中。
-    when(roomMapper.findById(1)).thenReturn(room); // 准备部屋検索返却值。
-    assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000"))) // 执行と断言例外。
-      .isInstanceOf(IllegalArgumentException.class) // 断言例外型に業務検証例外。
-      .hasMessage("空室の部屋のみ予約できます。"); // 断言メッセージにのみ允许空室予約。
-    verify(reservationMapper, never()).countOverlapping(any(), any(), any()); // 断言部屋状態非合格时非继续查重複。
-    verify(reservationMapper, never()).insert(any(Reservation.class)); // 断言非会書き込み予約テーブル。
-  }
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Pago_Pago"));
+            LocalDate actual = reservationService.currentDate();
+            assertThat(actual).isEqualTo(systemDate);
+            assertThat(actual).isNotEqualTo(BUSINESS_DATE);
+            verify(reservationMapper).currentDate();
+        } finally {
+            TimeZone.setDefault(originalTimeZone);
+        }
+    }
 
-  @Test // 標记未清掃エラーテスト。
-  void createRejectsRoomThatIsNotCleaned() { // テスト空室但未清掃の部屋非可能予約。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    Room room = sampleBookableRoom(); // 構築基本部屋。
-    room.setCleaningStatus("needs_cleaning"); // 設定部屋に未清掃。
-    when(roomMapper.findById(1)).thenReturn(room); // 准备部屋検索返却值。
-    assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000"))) // 执行と断言例外。
-      .isInstanceOf(IllegalArgumentException.class) // 断言例外型に業務検証例外。
-      .hasMessage("清掃済みの部屋のみ予約できます。"); // 断言メッセージにのみ允许清掃済部屋予約。
-    verify(reservationMapper, never()).countOverlapping(any(), any(), any()); // 断言清掃状態非合格时非继续查重複。
-    verify(reservationMapper, never()).insert(any(Reservation.class)); // 断言非会書き込み予約テーブル。
-  }
+    /**
+     * テストケース名：test_02 create Rejects Check In Date Before System Date Even When Local Environment Date Is Earlier
+     * テスト条件：システム日付とローカル環境日付が異なる状態を準備する。
+     * テスト要望：端末側のローカル時刻に依存せず、システム日付基準で予約可否を判定すること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_02 create Rejects Check In Date Before System Date Even When Local Environment Date Is Earlier")
+    @Test
+    void createRejectsCheckInDateBeforeSystemDateEvenWhenLocalEnvironmentDateIsEarlier() {
+        LocalDate localEnvironmentDate = BUSINESS_DATE;
+        LocalDate systemDate = localEnvironmentDate.plusDays(30);
+        Reservation reservation = sampleReservation();
+        reservation.setCheckInDate(localEnvironmentDate.plusDays(1));
+        reservation.setCheckOutDate(localEnvironmentDate.plusDays(2));
+        when(reservationMapper.currentDate()).thenReturn(systemDate);
 
-  @Test // 標记予約人フリガナ格式エラーテスト。
-  void createRejectsInvalidGuestKana() { // テスト予約人フリガナ非是全角片仮名时拒绝。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    reservation.setGuestKana("やまだたろう"); // 設定に平仮名，模拟エラー入力。
-    assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000"))) // 执行と断言例外。
-      .isInstanceOf(IllegalArgumentException.class) // 断言例外型に業務検証例外。
-      .hasMessage("フリガナは全角カタカナで入力してください。"); // 断言メッセージにフリガナ格式エラー。
-    verify(roomMapper, never()).findById(any()); // 断言で基本検証失败时非会検索部屋。
-  }
+        System.out.print("  文字列結果：createRejectsCheckInDateBeforeSystemDateEvenWhenLocalEnvironmentDateIsEarlier"
+                + " / systemInput.currentDate=" + systemDate
+                + " / localEnvironmentDate=" + localEnvironmentDate
+                + " / input.checkInDate=" + reservation.getCheckInDate()
+                + " / input.checkOutDate=" + reservation.getCheckOutDate()
+                + System.lineSeparator());
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of(), List.of(), List.of(),
+                List.of(), List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("チェックイン日は本日以降を選択してください。");
+        verify(roomMapper, never()).findByIdForUpdate(any());
+    }
 
-  @Test // 標记予約人電話格式エラーテスト。
-  void createRejectsInvalidGuestPhone() { // テスト予約人電話パッケージ含不正字符时拒绝。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    reservation.setGuestPhone("090-0000-0000x"); // 設定不正電話字符。
-    assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000"))) // 执行と断言例外。
-      .isInstanceOf(IllegalArgumentException.class) // 断言例外型に業務検証例外。
-      .hasMessage("電話番号は000-0000-0000の形式で入力してください。"); // 断言メッセージに電話格式エラー。
-    verify(roomMapper, never()).findById(any()); // 断言で基本検証失败时非会検索部屋。
-  }
+    /**
+     * テストケース名：test_03 create Registers Reservation And Companion Normally
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_03 create Registers Reservation And Companion Normally")
+    @Test
+    void createRegistersReservationAndCompanionNormally() {
+        Reservation reservation = sampleReservation();
+        Room room = sampleBookableRoom();
+        when(roomMapper.findByIdForUpdate(1)).thenReturn(room);
+        when(reservationMapper.countOverlapping(1, reservation.getCheckInDate(), reservation.getCheckOutDate()))
+                .thenReturn(0);
+        reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28),
+                List.of("080-0000-0000"));
+        ArgumentCaptor<Reservation> reservationCaptor = ArgumentCaptor.forClass(Reservation.class);
+        ArgumentCaptor<ReservationGuest> guestCaptor = ArgumentCaptor.forClass(ReservationGuest.class);
+        verify(reservationMapper).insert(reservationCaptor.capture());
+        verify(reservationGuestMapper).insert(guestCaptor.capture());
+        verify(roomMapper).findByIdForUpdate(1);
+        verify(roomMapper).updateStatuses(1, "reserved", "cleaned");
+        assertThat(reservationCaptor.getValue().getReservationStatus()).isEqualTo("booked");
+        assertThat(reservationCaptor.getValue().getReservationNo()).isEqualTo("R000001");
+        assertThat(reservationCaptor.getValue().getReservationNo()).hasSize(7);
+        assertThat(reservationCaptor.getValue().getReservationStatusLabel()).isEqualTo("予約済");
+        assertThat(reservationCaptor.getValue().getPaymentStatus()).isEqualTo("unpaid");
+        assertThat(reservationCaptor.getValue().getPaymentStatusLabel()).isEqualTo("未払い");
+        assertThat(reservationCaptor.getValue().getReservationForm()).isEqualTo("公式");
+        assertThat(reservationCaptor.getValue().getTotalAmount()).isEqualByComparingTo("24000");
+        assertThat(guestCaptor.getValue().getGuestName()).isEqualTo("佐藤花子");
+        assertThat(guestCaptor.getValue().getGuestKana()).isEqualTo("サトウハナコ");
+        assertThat(guestCaptor.getValue().getGuestGender()).isEqualTo("女性");
+        assertThat(guestCaptor.getValue().getGuestAge()).isEqualTo(28);
+        assertThat(guestCaptor.getValue().getGuestPhone()).isEqualTo("080-0000-0000");
+    }
 
-  @Test // 標记予約人メール格式エラーテスト。
-  void createRejectsInvalidGuestEmail() { // テスト予約人メール格式非正しい时拒绝。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    reservation.setGuestEmail("guest.example.com"); // 設定不正メールで址。
-    assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000"))) // 执行と断言例外。
-      .isInstanceOf(IllegalArgumentException.class) // 断言例外型に業務検証例外。
-      .hasMessage("メールアドレスの形式が正しくありません。"); // 断言メッセージにメール格式エラー。
-    verify(roomMapper, never()).findById(any()); // 断言で基本検証失败时非会検索部屋。
-  }
+    /**
+     * テストケース名：test_04 create Rejects Duplicate Reservation For Same Room And Date
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_04 create Rejects Duplicate Reservation For Same Room And Date")
+    @Test
+    void createRejectsDuplicateReservationForSameRoomAndDate() {
+        Reservation reservation = sampleReservation();
+        when(roomMapper.findByIdForUpdate(1)).thenReturn(sampleBookableRoom());
+        when(reservationMapper.countOverlapping(1, reservation.getCheckInDate(), reservation.getCheckOutDate()))
+                .thenReturn(1);
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("指定期間はすでに予約されています。");
+        verify(reservationMapper, never()).insert(any(Reservation.class));
+        verify(reservationGuestMapper, never()).insert(any(ReservationGuest.class));
+        verify(roomMapper, never()).updateStatuses(any(), any(), any());
+    }
 
-  @Test // 標记同行者電話格式エラーテスト。
-  void createRejectsInvalidCompanionPhone() { // テスト同行者電話格式非正しい时拒绝。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28), List.of("080-0000-0000x"))) // 执行と断言例外。
-      .isInstanceOf(IllegalArgumentException.class) // 断言例外型に業務検証例外。
-      .hasMessage("電話番号は000-0000-0000の形式で入力してください。"); // 断言メッセージに電話格式エラー。
-    verify(roomMapper, never()).findById(any()); // 断言で同行者検証失败时非会検索部屋。
-  }
+    /**
+     * テストケース名：test_05 create Rejects Room That Is Not Vacant
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_05 create Rejects Room That Is Not Vacant")
+    @Test
+    void createRejectsRoomThatIsNotVacant() {
+        Reservation reservation = sampleReservation();
+        Room room = sampleBookableRoom();
+        room.setOccupancyStatus("occupied");
+        when(roomMapper.findByIdForUpdate(1)).thenReturn(room);
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("空室の部屋のみ予約できます。");
+        verify(reservationMapper, never()).countOverlapping(any(), any(), any());
+        verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
 
-  @Test // 標记无電話无メール正常予約テスト。
-  void createAllowsReservationWithoutPhoneAndEmailWhenNoContactInfoIsSelected() { // テスト勾选无連絡先时可登録。
-    Reservation reservation = sampleReservation(); // 構築有効予約入力。
-    reservation.setGuestCount(1); // 設定連絡先なしの単独予約。
-    reservation.setGuestPhone(null); // 取消電話入力。
-    reservation.setGuestEmail(null); // 取消メール入力。
-    Room room = sampleBookableRoom(); // 構築可能予約部屋。
-    when(roomMapper.findById(1)).thenReturn(room); // 准备部屋検索返却值。
-    when(reservationMapper.countOverlapping(1, reservation.getCheckInDate(), reservation.getCheckOutDate())).thenReturn(0); // 准备無重複予約結果。
-    reservationService.create(reservation, true, List.of(), List.of(), List.of(), List.of(), List.of()); // 执行无連絡先予約登録。
-    verify(reservationMapper).insert(any(Reservation.class)); // 検証予約が保存される。
-    verify(roomMapper).updateStatuses(1, "reserved", "cleaned"); // 検証部屋状態更新される。
-  }
+    /**
+     * テストケース名：test_06 create Rejects Room That Is Not Cleaned
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_06 create Rejects Room That Is Not Cleaned")
+    @Test
+    void createRejectsRoomThatIsNotCleaned() {
+        Reservation reservation = sampleReservation();
+        Room room = sampleBookableRoom();
+        room.setCleaningStatus("needs_cleaning");
+        when(roomMapper.findByIdForUpdate(1)).thenReturn(room);
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("清掃済みの部屋のみ予約できます。");
+        verify(reservationMapper, never()).countOverlapping(any(), any(), any());
+        verify(reservationMapper, never()).insert(any(Reservation.class));
+    }
 
-  private Reservation sampleReservation() { // 定義構築予約入力の辅助メソッド。
-    Reservation reservation = new Reservation(); // 作成予約オブジェクト。
-    reservation.setRoomId(1); // 設定予約部屋番号。
-    reservation.setCheckInDate(LocalDate.of(2026, 7, 1)); // 設定宿泊日付。
-    reservation.setCheckOutDate(LocalDate.of(2026, 7, 2)); // 設定チェックアウト日付。
-    reservation.setGuestName("山田太郎"); // 設定予約宿泊者氏名。
-    reservation.setGuestGender("男性"); // 設定予約宿泊者性別。
-    reservation.setGuestAge(30); // 設定予約宿泊者年齢。
-    reservation.setGuestPhone("090-0000-0000"); // 設定予約宿泊者電話。
-    reservation.setGuestCount(2); // 設定予約人数。
-    return reservation; // 返却予約オブジェクト。
-  }
+    /**
+     * テストケース名：test_07 create Rejects Invalid Guest Kana
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_07 create Rejects Invalid Guest Kana")
+    @Test
+    void createRejectsInvalidGuestKana() {
+        Reservation reservation = sampleReservation();
+        reservation.setGuestKana("やまだたろう");
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("フリガナは全角カタカナで入力してください。");
+        verify(roomMapper, never()).findByIdForUpdate(any());
+    }
 
-  private Room sampleBookableRoom() { // 定義構築可能予約部屋の辅助メソッド。
-    Room room = new Room(); // 作成部屋オブジェクト。
-    room.setId(1); // 設定部屋主キー。
-    room.setRoomNumber("101"); // 設定部屋番号。
-    room.setRoomName("桜の間"); // 設定部屋名称。
-    room.setCapacity(2); // 設定部屋定員。
-    room.setBasePricePerPerson(BigDecimal.valueOf(12000)); // 設定每人基本単価。
-    room.setOccupancyStatus("vacant"); // 設定部屋に空室。
-    room.setCleaningStatus("cleaned"); // 設定部屋に清掃済。
-    room.setActive(true); // 設定部屋有効。
-    return room; // 返却部屋オブジェクト。
-  }
+    /**
+     * テストケース名：test_08 create Rejects Past Check In Date
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_08 create Rejects Past Check In Date")
+    @Test
+    void createRejectsPastCheckInDate() {
+        Reservation reservation = sampleReservation();
+        reservation.setCheckInDate(BUSINESS_DATE.minusDays(1));
+        reservation.setCheckOutDate(BUSINESS_DATE.plusDays(1));
 
-  @Test // 標记予約状態ラベルテスト。
-  void reservationLabelsReflectStatusCodes() { // テストドメインエンティティの状態ラベル由状態码正しい派生。
-    Reservation reservation = new Reservation(); // 作成予約オブジェクト。
-    reservation.setReservationStatus("cancelled"); // 設定取消状態码。
-    reservation.setPaymentStatus("paid"); // 設定完了支付状態码。
-    assertThat(reservation.getReservationStatusLabel()).isEqualTo("取消済"); // 断言予約状態ラベルに取消済。
-    assertThat(reservation.getPaymentStatusLabel()).isEqualTo("支払済"); // 断言支付状態ラベルに支払済。
-  }
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("チェックイン日は本日以降を選択してください。");
+        verify(roomMapper, never()).findByIdForUpdate(any());
+    }
+
+    /**
+     * テストケース名：test_09 create Rejects Invalid Guest Phone
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_09 create Rejects Invalid Guest Phone")
+    @Test
+    void createRejectsInvalidGuestPhone() {
+        Reservation reservation = sampleReservation();
+        reservation.setGuestPhone("090-0000-0000x");
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("電話番号は000-0000-0000の形式で入力してください。");
+        verify(roomMapper, never()).findByIdForUpdate(any());
+    }
+
+    /**
+     * テストケース名：test_10 create Rejects Invalid Guest Email
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_10 create Rejects Invalid Guest Email")
+    @Test
+    void createRejectsInvalidGuestEmail() {
+        Reservation reservation = sampleReservation();
+        reservation.setGuestEmail("guest.example.com");
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("メールアドレスの形式が正しくありません。");
+        verify(roomMapper, never()).findByIdForUpdate(any());
+    }
+
+    /**
+     * テストケース名：test_11 create Rejects Guest Count Over Ten
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_11 create Rejects Guest Count Over Ten")
+    @Test
+    void createRejectsGuestCountOverTen() {
+        Reservation reservation = sampleReservation();
+        reservation.setGuestCount(11);
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("宿泊人数は10名以下にしてください。");
+        verify(roomMapper, never()).findByIdForUpdate(any());
+    }
+
+    /**
+     * テストケース名：test_12 create Rejects Invalid Companion Phone
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_12 create Rejects Invalid Companion Phone")
+    @Test
+    void createRejectsInvalidCompanionPhone() {
+        Reservation reservation = sampleReservation();
+        assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
+                List.of("女性"), List.of(28), List.of("080-0000-0000x")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("電話番号は000-0000-0000の形式で入力してください。");
+        verify(roomMapper, never()).findByIdForUpdate(any());
+    }
+
+    /**
+     * テストケース名：test_13 create Allows Reservation Without Phone And Email When No Contact Info Is Selected
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_13 create Allows Reservation Without Phone And Email When No Contact Info Is Selected")
+    @Test
+    void createAllowsReservationWithoutPhoneAndEmailWhenNoContactInfoIsSelected() {
+        Reservation reservation = sampleReservation();
+        reservation.setGuestCount(1);
+        reservation.setGuestPhone(null);
+        reservation.setGuestEmail(null);
+        Room room = sampleBookableRoom();
+        when(roomMapper.findByIdForUpdate(1)).thenReturn(room);
+        when(reservationMapper.countOverlapping(1, reservation.getCheckInDate(), reservation.getCheckOutDate()))
+                .thenReturn(0);
+        reservationService.create(reservation, true, List.of(), List.of(), List.of(), List.of(), List.of());
+        verify(reservationMapper).insert(any(Reservation.class));
+        verify(roomMapper).updateStatuses(1, "reserved", "cleaned");
+    }
+
+    /**
+     * テストケース名：test_14 delete Cancelled Reservation Removes Row Normally
+     * テスト条件：取消済み予約を準備する。
+     * テスト要望：取消済み予約のみ削除できること。
+     * テスト結果：削除 SQL が実行されること。
+     */
+    @DisplayName("test_14 delete Cancelled Reservation Removes Row Normally")
+    @Test
+    void deleteCancelledReservationRemovesRowNormally() {
+        Reservation reservation = sampleReservation();
+        reservation.setId(1);
+        reservation.setReservationStatus("cancelled");
+        when(reservationMapper.findById(1)).thenReturn(reservation);
+        when(reservationMapper.deleteCancelled(1)).thenReturn(1);
+
+        reservationService.deleteCancelled(1);
+
+        verify(reservationMapper).deleteCancelled(1);
+    }
+
+    /**
+     * テストケース名：test_15 delete Cancelled Reservation Rejects Active Reservation
+     * テスト条件：取消済みではない予約を準備する。
+     * テスト要望：取消済み予約以外は削除できないこと。
+     * テスト結果：削除 SQL が実行されないこと。
+     */
+    @DisplayName("test_15 delete Cancelled Reservation Rejects Active Reservation")
+    @Test
+    void deleteCancelledReservationRejectsActiveReservation() {
+        Reservation reservation = sampleReservation();
+        reservation.setId(1);
+        reservation.setReservationStatus("booked");
+        when(reservationMapper.findById(1)).thenReturn(reservation);
+
+        assertThatThrownBy(() -> reservationService.deleteCancelled(1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("取消済み予約のみ削除できます。");
+        verify(reservationMapper, never()).deleteCancelled(1);
+    }
+
+    private Reservation sampleReservation() {
+        Reservation reservation = TestSetData.reservation("standard").toDomain();
+        reservation.setRoomId(1);
+        reservation.setCheckInDate(BUSINESS_DATE.plusDays(60));
+        reservation.setCheckOutDate(BUSINESS_DATE.plusDays(61));
+        return reservation;
+    }
+
+    private Room sampleBookableRoom() {
+        Room room = TestSetData.room("bookable").toDomain();
+        room.setId(1);
+        room.setBasePricePerPerson(BigDecimal.valueOf(12000));
+        return room;
+    }
+
+    /**
+     * テストケース名：test_16 reservation Labels Reflect Status Codes
+     * テスト条件：対象処理に必要な入力値、mock、または DB 状態を準備する。
+     * テスト要望：対象処理の期待仕様を満たすこと。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_16 reservation Labels Reflect Status Codes")
+    @Test
+    void reservationLabelsReflectStatusCodes() {
+        Reservation reservation = new Reservation();
+        reservation.setReservationStatus("cancelled");
+        reservation.setPaymentStatus("paid");
+        assertThat(reservation.getReservationStatusLabel()).isEqualTo("取消済");
+        assertThat(reservation.getPaymentStatusLabel()).isEqualTo("支払済");
+    }
+
+    /**
+     * テストケース名：test_17 update Checkout Cleaning Status Rejects Non Checked Out Reservation
+     * テスト条件：予約済み状態の予約を準備する。
+     * テスト要望：チェックアウト済みでない予約から清掃状態を更新できないこと。
+     * テスト結果：期待したエラーになり、客室状態が更新されないこと。
+     */
+    @DisplayName("test_17 update Checkout Cleaning Status Rejects Non Checked Out Reservation")
+    @Test
+    void updateCheckoutCleaningStatusRejectsNonCheckedOutReservation() {
+        Reservation reservation = sampleReservation();
+        reservation.setId(1);
+        reservation.setReservationStatus("booked");
+        when(reservationMapper.findById(1)).thenReturn(reservation);
+
+        assertThatThrownBy(() -> reservationService.updateCheckoutCleaningStatus(1, "cleaned"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("チェックアウト済み予約のみ清掃状態を更新できます。");
+        verify(roomMapper, never()).updateStatuses(any(), any(), any());
+    }
 }

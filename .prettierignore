@@ -1,0 +1,8 @@
+target/
+node_modules/
+.local/
+.idea/
+.vscode/
+coverage/
+src/main/resources/static/js/app.js
+docs/**/*.xlsx

@@ -1,78 +1,115 @@
-package com.example.minshuku.integration; // 実DBテスト共通処理の所属パッケージ。
+package com.example.minshuku.integration;
 
-import java.math.BigDecimal; // 金額フィールド初期化に使う高精度数値型。
-import java.time.LocalDate; // 日付フィールド初期化に使う日付型。
-import org.springframework.beans.factory.annotation.Autowired; // Spring の依存注入アノテーション。
-import org.springframework.jdbc.core.JdbcTemplate; // 実DBへ直接SQLを流すためのテンプレート。
+import com.example.minshuku.support.TestSetData;
+import com.example.minshuku.support.TestSetData.RoomSetData;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 
-abstract class LocalDbTestSupport { // 実DBテストで使う共通基底クラス。
-  @Autowired protected JdbcTemplate jdbcTemplate; // テスト用の JDBC テンプレート。
+/**
+ * ローカル DB 結合テストで共通利用するデータ準備・投入ユーティリティ。
+ */
+abstract class LocalDbTestSupport {
+    @Autowired
+    protected JdbcTemplate jdbcTemplate;
 
-  protected int bookableRoomId; // 予約可能な部屋のIDを保持する。
-  protected int occupiedRoomId; // 利用中の部屋のIDを保持する。
-  protected int dirtyRoomId; // 清掃待ちの部屋のIDを保持する。
-  protected int inactiveRoomId; // 無効化した部屋のIDを保持する。
-  protected int spareRoomId; // 追加の予約可能部屋のIDを保持する。
-  protected int ruleRoomId; // 料金ルール用の部屋IDを保持する。
+    protected int bookableRoomId;
+    protected int occupiedRoomId;
+    protected int dirtyRoomId;
+    protected int inactiveRoomId;
+    protected int spareRoomId;
+    protected int ruleRoomId;
 
-  protected void resetTables() { // 各テスト前にテーブルを空にする。
-    jdbcTemplate.execute("DELETE FROM reservation_guests"); // 同行者データを消す。
-    jdbcTemplate.execute("DELETE FROM room_price_rules"); // 料金ルールデータを消す。
-    jdbcTemplate.execute("DELETE FROM reservations"); // 予約データを消す。
-    jdbcTemplate.execute("DELETE FROM rooms"); // 部屋データを消す。
-    jdbcTemplate.execute("ALTER TABLE reservation_guests ALTER COLUMN id RESTART WITH 1"); // 同行者ID採番を戻す。
-    jdbcTemplate.execute("ALTER TABLE room_price_rules ALTER COLUMN id RESTART WITH 1"); // 料金ルールID採番を戻す。
-    jdbcTemplate.execute("ALTER TABLE reservations ALTER COLUMN id RESTART WITH 1"); // 予約ID採番を戻す。
-    jdbcTemplate.execute("ALTER TABLE rooms ALTER COLUMN id RESTART WITH 1"); // 部屋ID採番を戻す。
-  }
+    protected void resetTables() {
+        // 各テストを独立させるため、関連テーブルとシーケンスを初期化する。
+        jdbcTemplate.execute("DELETE FROM reservation_guests");
+        jdbcTemplate.execute("DELETE FROM room_price_rules");
+        jdbcTemplate.execute("DELETE FROM reservations");
+        jdbcTemplate.execute("DELETE FROM rooms");
+        jdbcTemplate.execute("ALTER TABLE reservation_guests ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE room_price_rules ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE reservations ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE rooms ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER SEQUENCE reservation_no_seq RESTART WITH 1");
+    }
 
-  protected void seedRooms() { // テストに必要な部屋データを投入する。
-    bookableRoomId = insertRoom("101", "桜の間", "washitsu", 2, BigDecimal.valueOf(8800), false, "vacant", "cleaned", true, "予約可能な部屋"); // 予約可能な部屋を作る。
-    occupiedRoomId = insertRoom("102", "竹の間", "washitsu", 3, BigDecimal.valueOf(9800), false, "occupied", "cleaned", true, "利用中の部屋"); // 利用中の部屋を作る。
-    dirtyRoomId = insertRoom("103", "海の間", "yoshitsu", 2, BigDecimal.valueOf(11800), true, "vacant", "needs_cleaning", true, "清掃待ちの部屋"); // 清掃待ちの部屋を作る。
-    inactiveRoomId = insertRoom("104", "山の間", "family", 5, BigDecimal.valueOf(12800), true, "vacant", "cleaned", false, "無効化済みの部屋"); // 無効化済みの部屋を作る。
-    spareRoomId = insertRoom("105", "川の間", "family", 4, BigDecimal.valueOf(15000), false, "vacant", "cleaned", true, "予備の部屋"); // 追加の予約可能部屋を作る。
-    ruleRoomId = insertRoom("106", "花の間", "washitsu", 2, BigDecimal.valueOf(16000), false, "vacant", "cleaned", true, "料金ルール確認用の部屋"); // 料金ルール確認用の部屋を作る。
-  }
+    protected void seedRooms() {
+        // 予約可否や状態遷移を確認しやすいよう、役割の異なる客室を複数投入する。
+        bookableRoomId = insertRoom(TestSetData.room("bookable"));
+        occupiedRoomId = insertRoom(TestSetData.room("occupied"));
+        dirtyRoomId = insertRoom(TestSetData.room("dirty"));
+        inactiveRoomId = insertRoom(TestSetData.room("inactive"));
+        spareRoomId = insertRoom(TestSetData.room("spare"));
+        ruleRoomId = insertRoom(TestSetData.room("rule"));
+    }
 
-  protected int insertRoom(String roomNumber, String roomName, String roomType, int capacity, BigDecimal basePricePerPerson, boolean privateBath, String occupancyStatus, String cleaningStatus, boolean active, String note) { // 部屋1件を挿入してIDを返す。
-    jdbcTemplate.update("""
-      INSERT INTO rooms (
-        room_number, room_name, room_type, capacity, base_price_per_person,
-        private_bath, occupancy_status, cleaning_status, active, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      """, roomNumber, roomName, roomType, capacity, basePricePerPerson, privateBath, occupancyStatus, cleaningStatus, active, note); // 部屋を挿入する。
-    return jdbcTemplate.queryForObject("SELECT MAX(id) FROM rooms", Integer.class); // 追加した部屋のIDを返す。
-  }
+    protected int insertRoom(RoomSetData room) {
+        return insertRoom(room.roomNumber(), room.roomName(), room.roomType(), room.capacity(),
+                room.basePricePerPerson(), room.privateBath(), room.occupancyStatus(), room.cleaningStatus(),
+                room.active(), room.note());
+    }
 
-  protected int insertPriceRule(Integer roomId, String ruleName, LocalDate startDate, LocalDate endDate, BigDecimal pricePerPerson, int priority, boolean active, String note) { // 料金ルール1件を挿入してIDを返す。
-    jdbcTemplate.update("""
-      INSERT INTO room_price_rules (
-        room_id, rule_name, start_date, end_date, price_per_person,
-        priority, active, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      """, roomId, ruleName, startDate, endDate, pricePerPerson, priority, active, note); // 料金ルールを挿入する。
-    return jdbcTemplate.queryForObject("SELECT MAX(id) FROM room_price_rules", Integer.class); // 追加した料金ルールのIDを返す。
-  }
+    protected int insertRoom(String roomNumber, String roomName, String roomType, int capacity,
+            BigDecimal basePricePerPerson, boolean privateBath, String occupancyStatus, String cleaningStatus,
+            boolean active, String note) {
+        // テスト用の素データを直接投入し、サービスの前提状態を作る。
+        jdbcTemplate.update("""
+                INSERT INTO rooms (
+                  room_number, room_name, room_type, capacity, base_price_per_person,
+                  private_bath, occupancy_status, cleaning_status, active, note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, roomNumber, roomName, roomType, capacity, basePricePerPerson, privateBath, occupancyStatus,
+                cleaningStatus, active, note);
+        return jdbcTemplate.queryForObject("SELECT MAX(id) FROM rooms", Integer.class);
+    }
 
-  protected int insertReservation(Integer roomId, String reservationNo, LocalDate checkInDate, LocalDate checkOutDate, String guestName, String guestKana, String guestGender, Integer guestAge, String guestPhone, String guestEmail, Integer guestCount, String reservationForm, String paymentStatus, String reservationStatus, BigDecimal totalAmount, String note) { // 予約1件を挿入してIDを返す。
-    jdbcTemplate.update("""
-      INSERT INTO reservations (
-        reservation_no, room_id, check_in_date, check_out_date, guest_name,
-        guest_kana, guest_gender, guest_age, guest_phone, guest_email,
-        guest_count, reservation_form, payment_status, reservation_status,
-        total_amount, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      """, reservationNo, roomId, checkInDate, checkOutDate, guestName, guestKana, guestGender, guestAge, guestPhone, guestEmail, guestCount, reservationForm, paymentStatus, reservationStatus, totalAmount, note); // 予約を挿入する。
-    return jdbcTemplate.queryForObject("SELECT MAX(id) FROM reservations", Integer.class); // 追加した予約のIDを返す。
-  }
+    protected int insertPriceRule(Integer roomId, String ruleName, LocalDate startDate, LocalDate endDate,
+            BigDecimal pricePerPerson, int priority, boolean active, String note) {
+        // 料金ルールの重複や優先順を検証するための初期データを投入する。
+        jdbcTemplate.update("""
+                INSERT INTO room_price_rules (
+                  room_id, rule_name, start_date, end_date, price_per_person,
+                  priority, active, note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, roomId, ruleName, startDate, endDate, pricePerPerson, priority, active, note);
+        return jdbcTemplate.queryForObject("SELECT MAX(id) FROM room_price_rules", Integer.class);
+    }
 
-  protected int insertReservationGuest(Integer reservationId, String guestName, String guestKana, String guestGender, Integer guestAge, String guestPhone) { // 同行者1件を挿入してIDを返す。
-    jdbcTemplate.update("""
-      INSERT INTO reservation_guests (
-        reservation_id, guest_name, guest_kana, guest_gender, guest_age, guest_phone
-      ) VALUES (?, ?, ?, ?, ?, ?)
-      """, reservationId, guestName, guestKana, guestGender, guestAge, guestPhone); // 同行者を挿入する。
-    return jdbcTemplate.queryForObject("SELECT MAX(id) FROM reservation_guests", Integer.class); // 追加した同行者のIDを返す。
-  }
+    protected int insertReservation(Integer roomId, String reservationNo, LocalDate checkInDate, LocalDate checkOutDate,
+            String guestName, String guestKana, String guestGender, Integer guestAge, String guestPhone,
+            String guestEmail, Integer guestCount, String reservationForm, String paymentStatus,
+            String reservationStatus, BigDecimal totalAmount, String note) {
+        // 予約本体の状態同期テストで使う直挿しレコード。
+        jdbcTemplate.update("""
+                INSERT INTO reservations (
+                  reservation_no, room_id, check_in_date, check_out_date, guest_name,
+                  guest_kana, guest_gender, guest_age, guest_phone, guest_email,
+                  guest_count, reservation_form, payment_status, reservation_status,
+                  total_amount, note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, reservationNo, roomId, checkInDate, checkOutDate, guestName, guestKana, guestGender, guestAge,
+                guestPhone, guestEmail, guestCount, reservationForm, paymentStatus, reservationStatus, totalAmount,
+                note);
+        return jdbcTemplate.queryForObject("SELECT MAX(id) FROM reservations", Integer.class);
+    }
+
+    protected int insertReservationGuest(Integer reservationId, String guestName, String guestKana, String guestGender,
+            Integer guestAge, String guestPhone) {
+        // 同行者明細を直接投入し、予約本体との関連を確認できるようにする。
+        jdbcTemplate.update("""
+                INSERT INTO reservation_guests (
+                  reservation_id, guest_name, guest_kana, guest_gender, guest_age, guest_phone
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """, reservationId, guestName, guestKana, guestGender, guestAge, guestPhone);
+        return jdbcTemplate.queryForObject("SELECT MAX(id) FROM reservation_guests", Integer.class);
+    }
+
+    protected void printComparison(String label, Object expected, Object actual) {
+        // テストの期待値・実測値をログに残し、差分確認しやすくする。
+        String result = Objects.equals(expected, actual) ? "一致" : "不一致";
+        System.out.print("  結果比較：" + label + " / 期待値=" + expected + " / 実際値=" + actual + " / " + result
+                + System.lineSeparator());
+    }
 }

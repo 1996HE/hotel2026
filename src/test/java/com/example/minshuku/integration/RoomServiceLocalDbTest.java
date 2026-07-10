@@ -1,106 +1,241 @@
-package com.example.minshuku.integration; // 実DBを使う部屋サービステストの所属パッケージ。
+package com.example.minshuku.integration;
 
-import static org.assertj.core.api.Assertions.assertThat; // AssertJ の通常断言を使う。
-import static org.assertj.core.api.Assertions.assertThatThrownBy; // AssertJ の例外断言を使う。
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.example.minshuku.domain.Room; // 部屋エンティティを使う。
-import com.example.minshuku.mapper.RoomMapper; // 実DB参照用の部屋 Mapper を使う。
-import com.example.minshuku.service.RoomService; // テスト対象の部屋サービスを使う。
-import java.math.BigDecimal; // 金額設定に使う。
-import java.util.List; // 一覧比較に使う。
-import org.junit.jupiter.api.BeforeEach; // テスト前準備に使う。
-import org.junit.jupiter.api.Test; // テスト定義に使う。
-import org.springframework.beans.factory.annotation.Autowired; // DI に使う。
-import org.springframework.boot.test.context.SpringBootTest; // Spring 全体を起動する。
-import org.springframework.transaction.annotation.Transactional; // 各テストをロールバックする。
+import com.example.minshuku.domain.Room;
+import com.example.minshuku.mapper.RoomMapper;
+import com.example.minshuku.service.RoomService;
+import com.example.minshuku.support.LoggedTest;
+import com.example.minshuku.support.TestSetData;
+import java.math.BigDecimal;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest // 実DB付きで Spring コンテキストを起動する。
-@Transactional // 各テストの変更をロールバックする。
-class RoomServiceLocalDbTest extends LocalDbTestSupport { // 実DBで部屋サービスを検証する。
-  @Autowired private RoomService roomService; // テスト対象の部屋サービスを注入する。
-  @Autowired private RoomMapper roomMapper; // 結果確認用の部屋 Mapper を注入する。
+@SpringBootTest
+@Transactional
+@LoggedTest
+@DisplayName("部屋サービスDB連携")
+/**
+ * 客室の登録、再有効化、論理削除、状態更新を確認する結合テスト。
+ */
+class RoomServiceLocalDbTest extends LocalDbTestSupport {
+    @Autowired
+    private RoomService roomService;
+    @Autowired
+    private RoomMapper roomMapper;
 
-  @BeforeEach // 各テストの前に実行する。
-  void setUp() { // 初期データを準備する。
-    resetTables(); // 既存データを消す。
-    seedRooms(); // 部屋データを投入する。
-  }
+    @BeforeEach
+    void setUp() {
+        resetTables();
+        seedRooms();
+    }
 
-  @Test // 正常系の新規登録を検証する。
-  void createPersistsRoomNormally() { // 新しい部屋をそのまま登録できることを確認する。
-    Room room = new Room(); // 登録用の部屋オブジェクトを作る。
-    room.setRoomNumber("201"); // 部屋番号を設定する。
-    room.setRoomName("月の間"); // 部屋名を設定する。
-    room.setRoomType("family"); // 部屋タイプを設定する。
-    room.setCapacity(4); // 定員を設定する。
-    room.setBasePricePerPerson(BigDecimal.valueOf(18000)); // 基本料金を設定する。
-    room.setPrivateBath(true); // 露天風呂有無を設定する。
-    room.setOccupancyStatus("vacant"); // 空室状態を設定する。
-    room.setCleaningStatus("cleaned"); // 清掃状態を設定する。
-    room.setActive(true); // 有効状態を設定する。
-    room.setNote("テスト用の新規部屋"); // メモを設定する。
-    roomService.create(room); // 実際に登録する。
-    Room saved = roomMapper.findById(room.getId()); // DBから登録結果を取り出す。
-    assertThat(saved).isNotNull(); // 保存されていることを確認する。
-    assertThat(saved.getRoomNumber()).isEqualTo("201"); // 部屋番号が入っていることを確認する。
-    assertThat(saved.getRoomName()).isEqualTo("月の間"); // 部屋名が入っていることを確認する。
-    assertThat(saved.getActive()).isTrue(); // 有効状態が維持されていることを確認する。
-    assertThat(roomService.countAll()).isEqualTo(6); // 部屋数が1件増えていることを確認する。
-  }
+    /**
+     * テストケース名：test_01 create Persists Room Normally
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_01 create Persists Room Normally")
+    @Test
+    void createPersistsRoomNormally() {
+        Room room = TestSetData.room("new-room").toDomain();
+        roomService.create(room);
+        Room saved = roomMapper.findById(room.getId());
+        assertThat(saved).isNotNull();
+        assertThat(saved.getRoomNumber()).isEqualTo(room.getRoomNumber());
+        assertThat(saved.getRoomName()).isEqualTo(room.getRoomName());
+        assertThat(saved.getActive()).isTrue();
+        assertThat(roomService.countAll()).isEqualTo(6);
+    }
 
-  @Test // 異常系の重複登録を検証する。
-  void createRejectsDuplicateActiveRoomNumber() { // 有効部屋番号の重複は拒否される。
-    Room room = new Room(); // 登録用の部屋オブジェクトを作る。
-    room.setRoomNumber("101"); // 既存の有効部屋番号を入れる。
-    room.setRoomName("重複の間"); // 部屋名を設定する。
-    room.setCapacity(2); // 定員を設定する。
-    room.setBasePricePerPerson(BigDecimal.valueOf(10000)); // 基本料金を設定する。
-    room.setActive(true); // 有効状態を設定する。
-    assertThatThrownBy(() -> roomService.create(room)) // 登録処理を実行して例外を確認する。
-      .isInstanceOf(IllegalArgumentException.class) // 業務例外であることを確認する。
-      .hasMessage("部屋番号が重複しています。"); // 重複エラーメッセージを確認する。
-  }
+    /**
+     * テストケース名：test_02 create Rejects Duplicate Active Room Number
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_02 create Rejects Duplicate Active Room Number")
+    @Test
+    void createRejectsDuplicateActiveRoomNumber() {
+        Room room = new Room();
+        room.setRoomNumber("101");
+        room.setRoomName("重複の間");
+        room.setCapacity(2);
+        room.setBasePricePerPerson(BigDecimal.valueOf(10000));
+        room.setActive(true);
+        assertThatThrownBy(() -> roomService.create(room))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("部屋番号が重複しています。");
+    }
 
-  @Test // 正常系の再有効化を検証する。
-  void createReactivatesDeletedRoomWithSameRoomNumber() { // 休眠部屋を同番号で再利用できることを確認する。
-    insertRoom("401", "旧月の間", "washitsu", 2, BigDecimal.valueOf(9000), false, "vacant", "cleaned", false, "無効化済み"); // 無効化済みの部屋を事前投入する。
-    Room room = new Room(); // 再登録用の部屋オブジェクトを作る。
-    room.setRoomNumber("401"); // 同じ部屋番号を指定する。
-    room.setRoomName("新月の間"); // 新しい部屋名を入れる。
-    room.setRoomType("family"); // 新しいタイプを入れる。
-    room.setCapacity(3); // 新しい定員を入れる。
-    room.setBasePricePerPerson(BigDecimal.valueOf(13000)); // 新しい基本料金を入れる。
-    room.setPrivateBath(true); // 新しい属性を入れる。
-    room.setOccupancyStatus("vacant"); // 空室状態を入れる。
-    room.setCleaningStatus("cleaned"); // 清掃状態を入れる。
-    room.setNote("再有効化"); // メモを入れる。
-    roomService.create(room); // 再有効化処理を実行する。
-    Room saved = roomMapper.findByRoomNumberIncludingInactive("401"); // 再取得して状態を確認する。
-    assertThat(saved.getActive()).isTrue(); // 有効化されていることを確認する。
-    assertThat(saved.getRoomName()).isEqualTo("新月の間"); // 内容が更新されていることを確認する。
-    assertThat(saved.getCapacity()).isEqualTo(3); // 定員が更新されていることを確認する。
-  }
+    /**
+     * テストケース名：test_03 create Reactivates Deleted Room With Same Room Number
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_03 create Reactivates Deleted Room With Same Room Number")
+    @Test
+    void createReactivatesDeletedRoomWithSameRoomNumber() {
+        insertRoom("401", "旧月の間", "washitsu", 2, BigDecimal.valueOf(9000), false, "vacant", "cleaned", false, "無効化済み");
+        Room room = new Room();
+        room.setRoomNumber("401");
+        room.setRoomName("新月の間");
+        room.setRoomType("family");
+        room.setCapacity(3);
+        room.setBasePricePerPerson(BigDecimal.valueOf(13000));
+        room.setPrivateBath(true);
+        room.setOccupancyStatus("vacant");
+        room.setCleaningStatus("cleaned");
+        room.setNote("再有効化");
+        roomService.create(room);
+        Room saved = roomMapper.findByRoomNumberIncludingInactive("401");
+        assertThat(saved.getActive()).isTrue();
+        assertThat(saved.getRoomName()).isEqualTo("新月の間");
+        assertThat(saved.getCapacity()).isEqualTo(3);
+    }
 
-  @Test // 正常系の状態更新を検証する。
-  void updateStatusesUpdatesRoomStateNormally() { // 宿泊状態と清掃状態を同時に更新できることを確認する。
-    roomService.updateStatuses(bookableRoomId, "occupied", "needs_cleaning"); // 状態更新を実行する。
-    Room updated = roomMapper.findById(bookableRoomId); // 更新後の部屋を再取得する。
-    assertThat(updated.getOccupancyStatus()).isEqualTo("occupied"); // 宿泊状態が反映されていることを確認する。
-    assertThat(updated.getCleaningStatus()).isEqualTo("needs_cleaning"); // 清掃状態が反映されていることを確認する。
-  }
+    /**
+     * テストケース名：test_04 update Statuses Updates Room State Normally
+     * テスト条件：更新対象データと更新後の入力値を準備する。
+     * テスト要望：対象データの状態または値が正しく更新されること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_04 update Statuses Updates Room State Normally")
+    @Test
+    void updateStatusesUpdatesRoomStateNormally() {
+        roomService.updateStatuses(bookableRoomId, "occupied", "needs_cleaning");
+        Room updated = roomMapper.findById(bookableRoomId);
+        assertThat(updated.getOccupancyStatus()).isEqualTo("occupied");
+        assertThat(updated.getCleaningStatus()).isEqualTo("needs_cleaning");
+    }
 
-  @Test // 正常系の削除を検証する。
-  void deleteMarksRoomInactiveNormally() { // 削除で無効化されることを確認する。
-    roomService.delete(bookableRoomId); // 削除処理を実行する。
-    Room deleted = roomMapper.findById(bookableRoomId); // 削除後の部屋を再取得する。
-    assertThat(deleted.getActive()).isFalse(); // 無効化されていることを確認する。
-    assertThat(roomService.findInactive()).hasSize(2); // 無効化一覧に既存分と削除分が入ることを確認する。
-    assertThat(roomService.findInactive()).extracting(Room::getId).contains(bookableRoomId, inactiveRoomId); // 対象部屋と既存無効化部屋が表示されることを確認する。
-  }
+    /**
+     * テストケース名：test_05 delete Marks Room Inactive Normally
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_05 delete Marks Room Inactive Normally")
+    @Test
+    void deleteMarksRoomInactiveNormally() {
+        roomService.delete(bookableRoomId);
+        Room deleted = roomMapper.findById(bookableRoomId);
+        assertThat(deleted.getActive()).isFalse();
+        assertThat(roomService.findInactive()).hasSize(2);
+        assertThat(roomService.findInactive()).extracting(Room::getId).contains(bookableRoomId, inactiveRoomId);
+    }
 
-  @Test // 一覧抽出の正常系を検証する。
-  void findBookableReturnsOnlyVacantCleanedActiveRooms() { // 予約可能部屋だけが返ることを確認する。
-    List<Room> bookableRooms = roomService.findBookable(); // 予約可能部屋を取得する。
-    assertThat(bookableRooms).extracting(Room::getRoomNumber).containsExactly("101", "105", "106"); // 条件一致の部屋だけ返ることを確認する。
-  }
+    /**
+     * テストケース名：test_06 restore Reactivates Deleted Room Normally
+     * テスト条件：復元対象の論理削除済み部屋を準備する。
+     * テスト要望：削除済み一覧から復元できること。
+     * テスト結果：対象部屋が有効化されること。
+     */
+    @DisplayName("test_06 restore Reactivates Deleted Room Normally")
+    @Test
+    void restoreReactivatesDeletedRoomNormally() {
+        roomService.restore(inactiveRoomId);
+        Room restored = roomMapper.findById(inactiveRoomId);
+        assertThat(restored.getActive()).isTrue();
+        assertThat(roomService.findInactive()).extracting(Room::getId).doesNotContain(inactiveRoomId);
+        assertThat(roomService.findAll()).extracting(Room::getId).contains(inactiveRoomId);
+    }
+
+    /**
+     * テストケース名：test_07 delete Permanently Removes Deleted Room Normally
+     * テスト条件：予約履歴のない論理削除済み部屋を準備する。
+     * テスト要望：削除済み一覧から完全に消せること。
+     * テスト結果：対象部屋がDBから消えること。
+     */
+    @DisplayName("test_07 delete Permanently Removes Deleted Room Normally")
+    @Test
+    void deletePermanentlyRemovesDeletedRoomNormally() {
+        roomService.deletePermanently(inactiveRoomId);
+        Room removed = roomMapper.findById(inactiveRoomId);
+        assertThat(removed).isNull();
+        assertThat(roomService.findInactive()).extracting(Room::getId).doesNotContain(inactiveRoomId);
+    }
+
+    /**
+     * テストケース名：test_08 find Bookable Returns Only Vacant Cleaned Active Rooms
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待値と実際値が一致すること。
+     */
+    @DisplayName("test_08 find Bookable Returns Only Vacant Cleaned Active Rooms")
+    @Test
+    void findBookableReturnsOnlyVacantCleanedActiveRooms() {
+        List<Room> bookableRooms = roomService.findBookable();
+        assertThat(bookableRooms).extracting(Room::getRoomNumber).containsExactly("101", "105", "106");
+    }
+
+    /**
+     * テストケース名：test_09 query Rooms Compares Expected And Actual Results
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待値と実際値が一致すること。
+     */
+    @DisplayName("test_09 query Rooms Compares Expected And Actual Results")
+    @Test
+    void queryRoomsComparesExpectedAndActualResults() {
+        List<String> expectedActiveRooms = List.of("101", "102", "103", "105", "106");
+        List<String> actualActiveRooms = roomService.findAll().stream()
+                .map(Room::getRoomNumber)
+                .toList();
+        printComparison("正常系検索：有効部屋番号一覧", expectedActiveRooms, actualActiveRooms);
+        assertThat(actualActiveRooms).containsExactlyElementsOf(expectedActiveRooms);
+
+        List<String> expectedInactiveRooms = List.of("104");
+        List<String> actualInactiveRooms = roomService.findInactive().stream()
+                .map(Room::getRoomNumber)
+                .toList();
+        printComparison("正常系検索：無効部屋番号一覧", expectedInactiveRooms, actualInactiveRooms);
+        assertThat(actualInactiveRooms).containsExactlyElementsOf(expectedInactiveRooms);
+
+        printComparison("正常系検索：有効部屋数", 5, roomService.countAll());
+        assertThat(roomService.countAll()).isEqualTo(5);
+        printComparison("正常系検索：空室部屋数", 4, roomService.countVacant());
+        assertThat(roomService.countVacant()).isEqualTo(4);
+    }
+
+    /**
+     * テストケース名：test_10 query Room By Missing Id Returns Null For Out Of Range Data
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_10 query Room By Missing Id Returns Null For Out Of Range Data")
+    @Test
+    void queryRoomByMissingIdReturnsNullForOutOfRangeData() {
+        Room actualRoom = roomService.findById(9999);
+        printComparison("範囲外データ：存在しない部屋ID", null, actualRoom);
+        assertThat(actualRoom).isNull();
+    }
+
+    /**
+     * テストケース名：test_11 update Statuses Rejects Invalid Status As Abnormal Case
+     * テスト条件：更新対象データと更新後の入力値を準備する。
+     * テスト要望：対象データの状態または値が正しく更新されること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_11 update Statuses Rejects Invalid Status As Abnormal Case")
+    @Test
+    void updateStatusesRejectsInvalidStatusAsAbnormalCase() {
+        String actualMessage = null;
+        try {
+            roomService.updateStatuses(bookableRoomId, "broken", "cleaned");
+        } catch (IllegalArgumentException ex) {
+            actualMessage = ex.getMessage();
+        }
+        printComparison("異常系：不正な宿泊状態", "部屋の宿泊状態が正しくありません。", actualMessage);
+        assertThat(actualMessage).isEqualTo("部屋の宿泊状態が正しくありません。");
+    }
 }

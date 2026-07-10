@@ -1,110 +1,215 @@
-package com.example.minshuku.controller; // 宣言部屋ページテスト所属パッケージ。
+package com.example.minshuku.controller;
 
-import static org.hamcrest.Matchers.containsString; // 読み込み字符串パッケージ含断言工具。
-import static org.mockito.ArgumentMatchers.any; // 読み込み Mockito 任意パラメータ匹配器。
-import static org.mockito.Mockito.doThrow; // 読み込み Mockito 例外行に设定メソッド。
-import static org.mockito.Mockito.verify; // 読み込み Mockito 呼び出し検証メソッド。
-import static org.mockito.Mockito.when; // 読み込み Mockito 行に设定メソッド。
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get; // 読み込み GET リクエスト構築メソッド。
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post; // 読み込み POST リクエスト構築メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content; // 読み込みレスポンスコンテンツ断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash; // 読み込み flash 断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model; // 読み込みモデル断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl; // 読み込みリダイレクト URL 断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status; // 読み込み HTTP 状態断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view; // 読み込み視图名称断言メソッド。
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-import com.example.minshuku.domain.Room; // 読み込み部屋エンティティ用構築ページデータ。
-import com.example.minshuku.service.RoomService; // 読み込み被 mock の部屋サービス。
-import java.math.BigDecimal; // 読み込み金額型用テストデータ。
-import java.util.List; // 読み込み一覧型用テストデータ。
-import org.junit.jupiter.api.Test; // 読み込み JUnit テストアノテーション。
-import org.springframework.beans.factory.annotation.Autowired; // 読み込みテスト依赖注入アノテーション。
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest; // 読み込み MVC 切り出しテストアノテーション。
-import org.springframework.boot.test.mock.mockito.MockBean; // 読み込み Spring Boot mock bean アノテーション。
-import org.springframework.test.web.servlet.MockMvc; // 読み込み MockMvc テスト宿泊者端。
+import com.example.minshuku.config.SecurityConfig;
+import com.example.minshuku.domain.Room;
+import com.example.minshuku.service.RoomService;
+import com.example.minshuku.support.LoggedTest;
+import com.example.minshuku.support.TestSetData;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
-@WebMvcTest(RoomController.class) // のみ加载部屋コントローラーと MVC 相关组件。
-class RoomControllerTest { // 部屋ページコントローラーテストを定義。
-  @Autowired private MockMvc mockMvc; // 注入 MockMvc 用模拟 HTTP リクエスト。
-  @MockBean private RoomService roomService; // 注入部屋サービス mock。
+@WebMvcTest(RoomController.class)
+@Import(SecurityConfig.class)
+@LoggedTest
+@DisplayName("部屋管理画面コントローラー")
+/**
+ * 客室一覧画面の表示と登録・更新・削除のルーティングを確認する WebMvc テスト。
+ */
+class RoomControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+    @MockBean
+    private RoomService roomService;
 
-  @Test // 標记正常表示部屋管理ページのテスト。
-  void roomsPageShowsActiveAndDeletedRoomsNormally() throws Exception { // テスト部屋ページ正常渲染。
-    when(roomService.findAll()).thenReturn(List.of(sampleRoom(true))); // 准备有効部屋一覧。
-    when(roomService.findInactive()).thenReturn(List.of(sampleRoom(false))); // 准备削除部屋一覧。
-    mockMvc.perform(get("/rooms")) // リクエスト部屋管理ページ。
-      .andExpect(status().isOk()) // 断言ページレスポンス成功。
-      .andExpect(view().name("rooms")) // 断言返却 rooms 模板。
-      .andExpect(model().attributeExists("rooms", "deletedRooms", "room")) // 断言モデルパッケージ含ページ必要要のデータ。
-      .andExpect(content().string(containsString("部屋一覧"))) // 断言有効部屋一覧標題表示。
-      .andExpect(content().string(containsString("削除済み部屋一覧"))); // 断言削除部屋一覧標題表示。
-  }
+    /**
+     * テストケース名：test_01 rooms Page Shows Active And Deleted Rooms Normally
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待値と実際値が一致すること。
+     */
+    @DisplayName("test_01 rooms Page Shows Active And Deleted Rooms Normally")
+    @Test
+    void roomsPageShowsActiveAndDeletedRoomsNormally() throws Exception {
+        mockMvc.perform(get("/rooms"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("app"))
+                .andExpect(content().string(containsString("<div id=\"root\"></div>")))
+                .andExpect(content().string(containsString("/js/app.js")));
+    }
 
-  @Test // 標记部屋新規登録正常パステスト。
-  void createRoomRedirectsWithSuccessMessage() throws Exception { // テスト部屋登録成功时リダイレクトと表示成功メッセージ。
-    mockMvc.perform(post("/rooms") // 送信部屋登録フォーム。
-        .param("roomNumber", "501") // 設定部屋番号。
-        .param("roomName", "雪の間") // 設定部屋名称。
-        .param("roomType", "washitsu") // 設定部屋タイプ。
-        .param("capacity", "2") // 設定定員。
-        .param("basePricePerPerson", "12000") // 設定基本料金。
-        .param("occupancyStatus", "vacant") // 設定宿泊状態。
-        .param("cleaningStatus", "cleaned") // 設定清掃状態。
-        .param("active", "true")) // 設定有効状態。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/rooms")) // 断言リダイレクトへ部屋ページ。
-      .andExpect(flash().attribute("message", "部屋を登録しました。")); // 断言成功メッセージ。
-    verify(roomService).create(any(Room.class)); // 検証呼び出し部屋登録サービス。
-  }
+    /**
+     * テストケース名：test_02 create Room Redirects With Success Message
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_02 create Room Redirects With Success Message")
+    @Test
+    void createRoomRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/rooms").with(csrf())
+                .param("roomNumber", "501")
+                .param("roomName", "雪の間")
+                .param("roomType", "washitsu")
+                .param("capacity", "2")
+                .param("basePricePerPerson", "12000")
+                .param("occupancyStatus", "vacant")
+                .param("cleaningStatus", "cleaned")
+                .param("active", "true"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/rooms"))
+                .andExpect(flash().attribute("message", "部屋を登録しました。"));
+        verify(roomService).create(any(Room.class));
+    }
 
-  @Test // 標记部屋新規登録業務エラーパステスト。
-  void createRoomShowsValidationErrorWhenServiceRejects() throws Exception { // テスト業務検証失败时返却エラーメッセージ。
-    doThrow(new IllegalArgumentException("部屋番号を入力してください。")).when(roomService).create(any(Room.class)); // 准备サービス抛出検証例外。
-    mockMvc.perform(post("/rooms").param("roomNumber", "")) // 送信非完整部屋フォーム。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/rooms")) // 断言リダイレクトへ部屋ページ。
-      .andExpect(flash().attribute("error", "部屋番号を入力してください。")); // 断言エラーメッセージ。
-  }
+    /**
+     * テストケース名：test_03 create Room Shows Validation Error When Service Rejects
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_03 create Room Shows Validation Error When Service Rejects")
+    @Test
+    void createRoomShowsValidationErrorWhenServiceRejects() throws Exception {
+        doThrow(new IllegalArgumentException("部屋番号を入力してください。")).when(roomService).create(any(Room.class));
+        mockMvc.perform(post("/rooms").with(csrf()).param("roomNumber", ""))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/rooms"))
+                .andExpect(flash().attribute("error", "部屋番号を入力してください。"));
+    }
 
-  @Test // 標记部屋新規登録システムエラーパステスト。
-  void createRoomShowsGenericErrorWhenRuntimeExceptionOccurs() throws Exception { // テストデータベース重複等起動时エラーメッセージ。
-    doThrow(new RuntimeException("duplicate")).when(roomService).create(any(Room.class)); // 准备サービス抛出起動时例外。
-    mockMvc.perform(post("/rooms").param("roomNumber", "101")) // 送信重複部屋番号。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/rooms")) // 断言リダイレクトへ部屋ページ。
-      .andExpect(flash().attribute("error", "部屋登録に失敗しました。部屋番号が重複していないか確認してください。")); // 断言通用エラーメッセージ。
-  }
+    /**
+     * テストケース名：test_04 create Room Shows Generic Error When Runtime Exception Occurs
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_04 create Room Shows Generic Error When Runtime Exception Occurs")
+    @Test
+    void createRoomShowsGenericErrorWhenRuntimeExceptionOccurs() throws Exception {
+        String expectedError = "部屋登録に失敗しました。部屋番号が重複していないか確認してください。";
+        doThrow(new RuntimeException("duplicate")).when(roomService).create(any(Room.class));
+        MvcResult result = mockMvc.perform(post("/rooms").with(csrf()).param("roomNumber", "101"))
+                .andReturn();
 
-  @Test // 標记部屋状態更新正常パステスト。
-  void updateRoomStatusRedirectsWithSuccessMessage() throws Exception { // テスト部屋状態更新成功。
-    mockMvc.perform(post("/rooms/1/statuses").param("occupancyStatus", "vacant").param("cleaningStatus", "cleaned")) // 送信部屋状態更新。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/rooms")) // 断言リダイレクトへ部屋ページ。
-      .andExpect(flash().attribute("message", "部屋ステータスを更新しました。")); // 断言成功メッセージ。
-    verify(roomService).updateStatuses(1, "vacant", "cleaned"); // 検証呼び出し状態更新サービス。
-  }
+        int actualStatus = result.getResponse().getStatus();
+        String actualRedirectUrl = result.getResponse().getRedirectedUrl();
+        Object actualError = result.getFlashMap().get("error");
+        System.out.print("  文字列結果：createRoomShowsGenericErrorWhenRuntimeExceptionOccurs"
+                + " / 入力roomNumber=101"
+                + " / 期待status=3xx"
+                + " / 実際status=" + actualStatus
+                + " / 期待redirect=/rooms"
+                + " / 実際redirect=" + actualRedirectUrl
+                + " / 期待error=" + expectedError
+                + " / 実際error=" + actualError
+                + System.lineSeparator());
 
-  @Test // 標记部屋削除正常パステスト。
-  void deleteRoomRedirectsWithSuccessMessage() throws Exception { // テスト部屋削除成功。
-    mockMvc.perform(post("/rooms/1/delete")) // 送信部屋削除リクエスト。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/rooms")) // 断言リダイレクトへ部屋ページ。
-      .andExpect(flash().attribute("message", "部屋を削除しました。")); // 断言成功メッセージ。
-    verify(roomService).delete(1); // 検証呼び出し削除サービス。
-  }
+        assertThat(actualStatus).isBetween(300, 399);
+        assertThat(actualRedirectUrl).isEqualTo("/rooms");
+        assertThat(actualError).isEqualTo(expectedError);
+    }
 
-  private Room sampleRoom(boolean active) { // 定義構築部屋テストデータのメソッド。
-    Room room = new Room(); // 作成部屋オブジェクト。
-    room.setId(active ? 1 : 2); // 設定部屋番号。
-    room.setRoomNumber(active ? "101" : "102"); // 設定部屋号。
-    room.setRoomName(active ? "桜の間" : "竹の間"); // 設定部屋名称。
-    room.setRoomType("washitsu"); // 設定部屋タイプ。
-    room.setCapacity(2); // 設定定員。
-    room.setBasePricePerPerson(BigDecimal.valueOf(8800)); // 設定基本料金。
-    room.setOccupancyStatus("vacant"); // 設定宿泊状態。
-    room.setCleaningStatus("cleaned"); // 設定清掃状態。
-    room.setActive(active); // 設定有効状態。
-    return room; // 返却部屋オブジェクト。
-  }
+    /**
+     * テストケース名：test_05 update Room Status Redirects With Success Message
+     * テスト条件：更新対象データと更新後の入力値を準備する。
+     * テスト要望：対象データの状態または値が正しく更新されること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_05 update Room Status Redirects With Success Message")
+    @Test
+    void updateRoomStatusRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/rooms/1/statuses").with(csrf()).param("occupancyStatus", "vacant")
+                .param("cleaningStatus", "cleaned"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/rooms"))
+                .andExpect(flash().attribute("message", "部屋ステータスを更新しました。"));
+        verify(roomService).updateStatuses(1, "vacant", "cleaned");
+    }
+
+    /**
+     * テストケース名：test_06 delete Room Redirects With Success Message
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_06 delete Room Redirects With Success Message")
+    @Test
+    void deleteRoomRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/rooms/1/delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/rooms"))
+                .andExpect(flash().attribute("message", "部屋を削除しました。"));
+        verify(roomService).delete(1);
+    }
+
+    /**
+     * テストケース名：test_07 restore Room Redirects With Success Message
+     * テスト条件：削除済み部屋を復元する。
+     * テスト要望：削除済み一覧から復元できること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_07 restore Room Redirects With Success Message")
+    @Test
+    void restoreRoomRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/rooms/1/restore").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/rooms"))
+                .andExpect(flash().attribute("message", "部屋を復元しました。"));
+        verify(roomService).restore(1);
+    }
+
+    /**
+     * テストケース名：test_08 delete Permanently Room Redirects With Success Message
+     * テスト条件：削除済み部屋を完全削除する。
+     * テスト要望：削除済み一覧から完全削除できること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_08 delete Permanently Room Redirects With Success Message")
+    @Test
+    void deletePermanentlyRoomRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/rooms/1/delete-permanently").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/rooms"))
+                .andExpect(flash().attribute("message", "部屋を完全削除しました。"));
+        verify(roomService).deletePermanently(1);
+    }
+
+    /**
+     * テストケース名：test_09 post Without Csrf Token Is Rejected
+     * テスト条件：CSRF token を付与しない POST リクエストを準備する。
+     * テスト要望：CSRF token がない更新系リクエストを拒否すること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_09 post Without Csrf Token Is Rejected")
+    @Test
+    void postWithoutCsrfTokenIsRejected() throws Exception {
+        mockMvc.perform(post("/rooms").param("roomNumber", "501"))
+                .andExpect(status().isForbidden());
+    }
+
+    private Room sampleRoom(boolean active) {
+        Room room = TestSetData.room(active ? "bookable" : "inactive").toDomain();
+        room.setId(active ? 1 : 2);
+        return room;
+    }
 }

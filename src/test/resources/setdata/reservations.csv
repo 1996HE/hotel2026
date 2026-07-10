@@ -1,0 +1,5 @@
+key,reservationNo,roomId,roomNumber,roomName,checkInDate,checkOutDate,guestName,guestKana,guestGender,guestAge,guestPhone,guestEmail,guestCount,reservationForm,paymentStatus,reservationStatus,totalAmount,note,companionSummary
+standard,R000001,1,101,桜の間,2026-07-01,2026-07-02,山田太郎,ヤマダタロウ,男性,30,090-0000-0000,guest@example.com,2,,unpaid,booked,24000,標準予約,佐藤花子（女性・28歳・080-0000-0000）
+paid,R000002,1,101,桜の間,2026-07-01,2026-07-02,山田太郎,ヤマダタロウ,男性,30,090-0000-0000,guest@example.com,2,電話,paid,booked,24000,支払済予約,佐藤花子（女性・28歳・080-0000-0000）
+cancelled,R000003,1,101,桜の間,2026-07-01,2026-07-02,山田太郎,ヤマダタロウ,男性,30,090-0000-0000,guest@example.com,2,電話,unpaid,cancelled,24000,取消予約,佐藤花子（女性・28歳・080-0000-0000）
+checked-out,R000004,1,101,桜の間,2026-07-01,2026-07-02,山田太郎,ヤマダタロウ,男性,30,090-0000-0000,guest@example.com,2,電話,unpaid,checked_out,24000,チェックアウト済予約,佐藤花子（女性・28歳・080-0000-0000）

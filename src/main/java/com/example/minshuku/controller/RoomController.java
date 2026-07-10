@@ -1,56 +1,78 @@
-package com.example.minshuku.controller; // 宣言部屋コントローラー所属パッケージ。
+package com.example.minshuku.controller;
 
-import com.example.minshuku.domain.Room; // 読み込み部屋エンティティ型。
-import com.example.minshuku.service.RoomService; // 読み込み部屋業務サービス。
-import org.springframework.stereotype.Controller; // 読み込み Spring MVC ページコントローラーアノテーション。
-import org.springframework.ui.Model; // 読み込みページモデルオブジェクト。
-import org.springframework.web.bind.annotation.GetMapping; // 読み込み GET ルーティングアノテーション。
-import org.springframework.web.bind.annotation.ModelAttribute; // 読み込みフォームオブジェクト绑定アノテーション。
-import org.springframework.web.bind.annotation.PathVariable; // 読み込みパス変数绑定アノテーション。
-import org.springframework.web.bind.annotation.PostMapping; // 読み込み POST ルーティングアノテーション。
-import org.springframework.web.bind.annotation.RequestParam; // 読み込みリクエストパラメータ绑定アノテーション。
-import org.springframework.web.servlet.mvc.support.RedirectAttributes; // 読み込みリダイレクト临时メッセージオブジェクト。
+import com.example.minshuku.domain.Room;
+import com.example.minshuku.service.RoomService;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-@Controller // 標记このクラス処理 Thymeleaf ページリクエスト。
-public class RoomController { // 定義部屋管理コントローラー。
-  private final RoomService roomService; // 保存部屋業務サービス依赖。
+/**
+ * 客室管理画面の表示、登録、ステータス更新、論理削除を担当するコントローラー。
+ */
+@Controller
+public class RoomController {
+    private final RoomService roomService;
 
-  public RoomController(RoomService roomService) { // 定義構築メソッド用依赖注入。
-    this.roomService = roomService; // 保存注入の部屋業務サービス。
-  }
-
-  @GetMapping("/rooms") // を部屋一覧パス映射へページ処理メソッド。
-  public String rooms(Model model) { // 定義部屋管理ページ処理メソッド。
-    model.addAttribute("rooms", roomService.findAll()); // 向ページ传递部屋一覧。
-    model.addAttribute("deletedRooms", roomService.findInactive()); // 向ページ传递削除済み部屋一覧。
-    model.addAttribute("room", new Room()); // 向ページ传递新規登録部屋フォームオブジェクト。
-    return "rooms"; // 返却 rooms.html 模板。
-  }
-
-  @PostMapping("/rooms") // を新規登録部屋フォーム送信パス映射へ処理メソッド。
-  public String create(@ModelAttribute Room room, RedirectAttributes redirectAttributes) { // 定義新規登録部屋処理メソッド。
-    try { // 捕获業務検証例外と转成ページメッセージ。
-      roomService.create(room); // 呼び出し業務サービス新規登録部屋。
-      redirectAttributes.addFlashAttribute("message", "部屋を登録しました。"); // 設定新規登録成功メッセージ。
-    } catch (IllegalArgumentException ex) { // 捕获フォーム検証例外。
-      redirectAttributes.addFlashAttribute("error", ex.getMessage()); // 設定エラーメッセージメッセージ。
-    } catch (RuntimeException ex) { // 捕获データベース唯一约束等起動时例外。
-      redirectAttributes.addFlashAttribute("error", "部屋登録に失敗しました。部屋番号が重複していないか確認してください。"); // 設定通用登録失败メッセージ。
+    public RoomController(RoomService roomService) {
+        this.roomService = roomService;
     }
-    return "redirect:/rooms"; // リダイレクト回部屋管理页避免重複送信。
-  }
 
-  @PostMapping("/rooms/{id}/statuses") // を部屋状態更新パス映射へ処理メソッド。
-  public String updateStatuses(@PathVariable Integer id, @RequestParam String occupancyStatus, @RequestParam String cleaningStatus, RedirectAttributes redirectAttributes) { // 定義部屋状態更新処理メソッド。
-    roomService.updateStatuses(id, occupancyStatus, cleaningStatus); // 呼び出し業務サービス更新部屋状態。
-    redirectAttributes.addFlashAttribute("message", "部屋ステータスを更新しました。"); // 設定状態更新成功メッセージ。
-    return "redirect:/rooms"; // リダイレクト回部屋管理页。
-  }
+    /**
+     * 有効な客室と削除済み客室を一覧表示する。
+     */
+    @GetMapping("/rooms")
+    public String rooms() {
+        return "app";
+    }
 
-  @PostMapping("/rooms/{id}/delete") // を部屋削除パス映射へ処理メソッド。
-  public String delete(@PathVariable Integer id, RedirectAttributes redirectAttributes) { // 定義部屋削除処理メソッド。
-    roomService.delete(id); // 呼び出し業務サービス削除部屋。
-    redirectAttributes.addFlashAttribute("message", "部屋を削除しました。"); // 設定削除成功メッセージ。
-    return "redirect:/rooms"; // リダイレクト回部屋管理页。
-  }
+    /**
+     * 客室を新規登録する。削除済みの同一客室番号がある場合は再有効化される。
+     */
+    @PostMapping("/rooms")
+    public String create(@ModelAttribute Room room, RedirectAttributes redirectAttributes) {
+        // 新規登録と既存無効部屋の再有効化は、サービス側で同一業務として扱う。
+        roomService.create(room);
+        redirectAttributes.addFlashAttribute("message", "部屋を登録しました。");
+        return "redirect:/rooms";
+    }
+
+    @PostMapping("/rooms/{id}/statuses")
+    public String updateStatuses(
+            @PathVariable Integer id,
+            @RequestParam String occupancyStatus,
+            @RequestParam String cleaningStatus,
+            RedirectAttributes redirectAttributes) {
+        // 宿泊状態と清掃状態は組み合わせで運用されるため、同時更新にする。
+        roomService.updateStatuses(id, occupancyStatus, cleaningStatus);
+        redirectAttributes.addFlashAttribute("message", "部屋ステータスを更新しました。");
+        return "redirect:/rooms";
+    }
+
+    @PostMapping("/rooms/{id}/delete")
+    public String delete(@PathVariable Integer id, RedirectAttributes redirectAttributes) {
+        // 物理削除ではなく論理削除にして、過去予約の参照整合を保つ。
+        roomService.delete(id);
+        redirectAttributes.addFlashAttribute("message", "部屋を削除しました。");
+        return "redirect:/rooms";
+    }
+
+    @PostMapping("/rooms/{id}/restore")
+    public String restore(@PathVariable Integer id, RedirectAttributes redirectAttributes) {
+        // 削除済み一覧から戻す処理は、論理削除フラグを反転するだけに留める。
+        roomService.restore(id);
+        redirectAttributes.addFlashAttribute("message", "部屋を復元しました。");
+        return "redirect:/rooms";
+    }
+
+    @PostMapping("/rooms/{id}/delete-permanently")
+    public String deletePermanently(@PathVariable Integer id, RedirectAttributes redirectAttributes) {
+        // 予約履歴がない削除済み部屋だけを完全削除し、一覧からも消す。
+        roomService.deletePermanently(id);
+        redirectAttributes.addFlashAttribute("message", "部屋を完全削除しました。");
+        return "redirect:/rooms";
+    }
 }

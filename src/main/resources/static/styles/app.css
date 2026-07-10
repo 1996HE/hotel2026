@@ -1,138 +1,1156 @@
-:root { /* 定義グローバル CSS 変数スコープ。 */
-  --ink: #1f2933; /* 設定主文字色。 */
-  --muted: #667085; /* 設定次级文字色。 */
-  --line: #d9e2ec; /* 設定ボーダー色。 */
-  --paper: #ffffff; /* 設定卡片背景色。 */
-  --wash: #f5f7fa; /* 設定ページ背景色。 */
-  --accent: #0f766e; /* 設定主ボタンとナビゲーション强调色。 */
-  --danger: #b42318; /* 設定危险操作ボタン色。 */
-} /* 終了グローバル CSS 変数定義。 */
-* { box-sizing: border-box; } /* すべてのすべて要素使用 border-box 尺寸モデル。 */
-body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--wash); } /* 設定ページ基本字体、色と背景。 */
-a { color: inherit; text-decoration: none; } /* 移除リンク初期値下線と继承文字色。 */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 32px; background: var(--paper); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; } /* 設定ヘッダーナビゲーション栏レイアウトと固定效果。 */
-.brand { font-weight: 800; font-size: 20px; color: var(--accent); } /* 設定システム品牌文字様式。 */
-.nav { display: flex; gap: 8px; flex-wrap: wrap; } /* 設定ナビゲーションリンク横排列と許可换行。 */
-.nav a { padding: 8px 12px; border-radius: 6px; color: var(--muted); } /* 設定ナビゲーションリンク基本様式。 */
-.nav a.active, .nav a:hover { background: #e6fffb; color: var(--accent); } /* 設定現在ナビゲーションとホバー状態。 */
-.page { width: min(1240px, calc(100% - 24px)); margin: 24px auto 48px; } /* 設定ページコンテンツ最大幅と外余白。 */
-.hero { padding: 34px 0 24px; } /* 設定ホーム標題領域间距。 */
-.hero h1, .panel h1, .section-title h2 { margin: 0 0 10px; line-height: 1.2; } /* 設定標題间距と行高。 */
-.hero p { max-width: 760px; color: var(--muted); margin: 0; } /* 設定ホーム说明文字幅と色。 */
-.eyebrow { color: var(--accent) !important; font-weight: 700; letter-spacing: 0; margin-bottom: 8px !important; } /* 設定小標題様式。 */
-.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; } /* 設定指標卡片网格レイアウト。 */
-.metric { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 20px; } /* 設定指標卡片外观。 */
-.metric span { display: block; color: var(--muted); margin-bottom: 6px; } /* 設定指標名称様式。 */
-.metric strong { font-size: 32px; } /* 設定指標数值大小。 */
-.grid-page { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; } /* 設定管理页左右两栏レイアウト。 */
-.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 20px; overflow-x: hidden; } /* 設定コンテンツ面板外观と限制横溢出。 */
-.wide { min-width: 0; } /* 防止宽テーブル撑破网格。 */
-.table-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; } /* に宽テーブル提供横スクロール領域。 */
-.table-scroll .reservation-table { min-width: 1180px; } /* 予約一覧保留完整列幅。 */
-.table-scroll .compact-table { min-width: 1120px; } /* 取消予約一覧保留完整列幅。 */
-.table-scroll .checkout-table { min-width: 1080px; } /* チェックアウト一覧保留完整列幅。 */
-.table-scroll .room-table { min-width: 1160px; } /* 部屋一覧保留完整列幅。 */
-.table-scroll .deleted-room-table { min-width: 760px; } /* 削除済み部屋一覧保留完整列幅。 */
-.section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; } /* 設定面板標題行レイアウト。 */
-.subsection-title { margin-top: 28px !important; padding-top: 18px; border-top: 1px solid var(--line); } /* 設定同面板内第二一覧標題様式。 */
-.form { display: grid; gap: 12px; } /* 設定フォームフィールド垂直间距。 */
-label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); } /* 設定フォームラベルレイアウトと色。 */
-input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; font: inherit; color: var(--ink); background: #fff; } /* 設定フォーム控件基本様式。 */
-textarea { resize: vertical; } /* 許可メモ文本框垂直调整大小。 */
-.field-hint { display: block; min-height: 1.2em; margin-top: 4px; font-size: 12px; line-height: 1.35; color: transparent; } /* に入力框下方预留メッセージ位置。 */
-.field-hint.is-visible { color: #fa0707; font-weight: 700; } /* すべての规范メッセージ以鲜红字显著表示。 */
-.check { display: flex; align-items: center; gap: 8px; } /* 設定复选框ラベル横排列。 */
-.check input { width: auto; } /* すべての复选框保持原生幅。 */
-button, .button { border: 0; border-radius: 6px; background: var(--accent); color: #fff; padding: 9px 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; } /* 設定ボタン基本様式。 */
-button:hover, .button:hover { filter: brightness(0.95); } /* 設定ボタンホバーフィードバック。 */
-.danger { background: var(--danger); } /* 設定危险操作ボタン色。 */
-.table { width: 100%; border-collapse: collapse; min-width: 0; table-layout: fixed; } /* 設定テーブル幅、固定列レイアウトとボーダー合と。 */
-.table th, .table td { border-bottom: 1px solid var(--line); padding: 10px 10px; text-align: left; vertical-align: top; } /* 設定テーブルセル间距とボーダー。 */
-.table th { color: var(--muted); font-size: 13px; font-weight: 700; background: #f8fafc; } /* 設定ヘッダー様式。 */
-.reservation-table, .compact-table { font-size: 11px; } /* 统一一覧テーブルの表示密度。 */
-.reservation-table th, .reservation-table td { padding: 7px 6px; } /* 调整予約一覧のセル间距。 */
-.reservation-table-full { min-width: 0; } /* 予約管理页非設定额外最小幅。 */
-.compact-table { min-width: 0; } /* 取消予約一覧非設定最小幅。 */
-.compact-table th, .compact-table td { padding: 6px 6px; } /* 缩小取消予約一覧のセル间距。 */
-.compact-table th { font-size: 12px; } /* 缩小取消予約一覧ヘッダー字号。 */
-.checkout-table { font-size: 11px; } /* 统一チェックアウト一覧の表示密度。 */
-.checkout-table th, .checkout-table td { padding: 6px 6px; } /* 缩小チェックアウト一覧のセル间距。 */
-.room-table, .deleted-room-table { font-size: 10px; } /* 统一部屋一覧の表示密度。 */
-.room-table th, .room-table td { padding: 6px 5px; } /* 缩小部屋一覧のセル间距。 */
-.deleted-room-table th, .deleted-room-table td { padding: 5px 5px; } /* 缩小削除済み部屋一覧のセル间距。 */
-.price-table { min-width: 1220px; font-size: 11px; } /* 設定料金ルール编辑テーブルの最小幅。 */
-.price-table th, .price-table td { padding: 6px 6px; } /* 缩小料金ルールフォーム元格间距。 */
-.price-table input, .price-table select, .price-table textarea { width: 100%; min-width: 0; padding: 6px 7px; font-size: 11px; } /* すべての料金ルールテーブル内控件更紧凑。 */
-.price-table textarea { min-height: 48px; } /* 制御料金ルールテーブルメモ框高さ。 */
-.price-table .price-check-cell { text-align: center; } /* すべての選択列居中。 */
-.price-col-select { width: 44px; } /* 設定料金ルール選択列幅。 */
-.price-col-check { text-align: center; } /* すべての一括選択列コンテンツ居中。 */
-.price-col-check input { width: auto; } /* すべての一括選択复选框保持原生幅。 */
-.price-actions { min-width: 96px; display: flex; flex-wrap: wrap; gap: 4px; } /* すべての料金ルール操作ボタン紧凑排列。 */
-.price-actions button { padding: 6px 8px; font-size: 11px; } /* 缩小削除ボタン尺寸。 */
-.price-bulk-form { display: grid; gap: 8px; } /* 設定料金一覧一括削除フォームレイアウト。 */
-.price-bulk-actions { display: flex; justify-content: flex-end; } /* 設定一括操作ボタン領域对齐方式。 */
-.price-bulk-actions button { padding: 7px 12px; font-size: 11px; } /* 缩小一括削除ボタン尺寸。 */
-.col-no { width: 72px; } /* 設定予約番号列幅。 */
-.col-room { width: 88px; } /* 設定部屋列幅。 */
-.col-guest { width: 120px; } /* 設定予約宿泊者列幅。 */
-.col-count { width: 48px; } /* 設定人数列幅。 */
-.col-contact { width: 120px; } /* 設定連絡先列幅。 */
-.col-form { width: 62px; } /* 設定予約形式列幅。 */
-.col-companion { width: 140px; } /* 設定同行者列幅。 */
-.col-date { width: 96px; } /* 設定日程列幅。 */
-.col-amount { width: 72px; } /* 設定金額列幅。 */
-.col-reservation-status { width: 80px; } /* 設定予約状態列幅。 */
-.col-payment-status { width: 104px; } /* 設定支払い状態列幅。 */
-.col-actions { width: 124px; } /* 設定操作列幅。 */
-.col-cleaning-status { width: 84px; } /* 設定清掃状態列幅。 */
-.col-checkout-actions { width: 180px; } /* 設定チェックアウト操作列幅。 */
-.room-col-no { width: 72px; } /* 設定部屋番号列幅。 */
-.room-col-name { width: 110px; } /* 設定部屋名称列幅。 */
-.room-col-type { width: 64px; } /* 設定部屋タイプ列幅。 */
-.room-col-capacity { width: 54px; } /* 設定定員列幅。 */
-.room-col-price { width: 74px; } /* 設定基本料金列幅。 */
-.room-col-status { width: 66px; } /* 設定部屋状態列幅。 */
-.room-col-cleaning { width: 66px; } /* 設定清掃状態列幅。 */
-.room-col-update { width: 220px; } /* 設定状態更新列幅。 */
-.room-col-delete { width: 64px; } /* 設定削除列幅。 */
-.room-col-updated { width: 120px; } /* 設定最終更新日時列幅。 */
-.price-col-check { width: 48px; } /* 設定料金ルール選択列幅。 */
-.price-col-room { width: 120px; } /* 設定料金ルール部屋列幅。 */
-.price-col-rule { width: 120px; } /* 設定料金ルール名称列幅。 */
-.price-col-date { width: 96px; } /* 設定料金ルール日付列幅。 */
-.price-col-price { width: 84px; } /* 設定料金ルール料金列幅。 */
-.price-col-priority { width: 68px; } /* 設定料金ルール优先度列幅。 */
-.price-col-status { width: 72px; } /* 設定料金ルール状態列幅。 */
-.price-col-note { width: 180px; } /* 設定料金ルールメモ列幅。 */
-.price-col-actions { width: 96px; } /* 設定料金ルール操作列幅。 */
-.table th, .table td { overflow: hidden; text-overflow: ellipsis; } /* 防止长コンテンツ撑破固定列レイアウト。 */
-.table td { word-break: break-word; } /* すべてのセルコンテンツで必要要时换行。 */
-.tag { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; background: #eef6ff; color: #175cd3; font-size: 12px; font-weight: 700; white-space: nowrap; } /* 設定状態ラベル様式。 */
-.inline-form { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px 2px 0; } /* 設定行内操作フォームレイアウト。 */
-.inline-form select { min-width: 94px; } /* 設定行内選択框最小幅。 */
-.room-status-form { display: flex; align-items: flex-start; gap: 8px; width: 100%; } /* すべての部屋状態更新フォーム横分栏表示。 */
-.room-status-fields { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; } /* すべての两个状態ドロップダウン框縦排列と占据左侧空间。 */
-.room-status-fields select { min-width: 0; width: 100%; } /* すべての状態ドロップダウン框适配左侧列幅。 */
-.room-status-form button { flex: 0 0 auto; align-self: stretch; white-space: nowrap; } /* すべての更新ボタン固定で右侧と与ドロップダウン框同高。 */
-.actions { min-width: 0; } /* 許可操作列压缩へテーブル列幅。 */
-.pager { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; } /* 設定ページングナビゲーションレイアウト。 */
-.pager-link, .pager-state { font-size: 12px; } /* 設定ページングリンクと状態字号。 */
-.pager-link { padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--accent); } /* 設定ページングリンク様式。 */
-.pager-state { color: var(--muted); font-weight: 700; } /* 設定ページング状態様式。 */
-.pager-title { margin-bottom: 8px; } /* 调整ページング標題領域间距。 */
-.subsection-title h1 { margin-bottom: 0; } /* 避免ページング標題領域额外留白。 */
-.notice { padding: 10px 12px; border-radius: 6px; font-weight: 700; } /* 設定メッセージメッセージ基本様式。 */
-.success { background: #ecfdf3; color: #027a48; } /* 設定成功メッセージ色。 */
-.error { background: #fef3f2; color: #b42318; } /* 設定エラーメッセージ色。 */
-.empty { color: var(--muted); text-align: center !important; padding: 28px !important; } /* 設定空状態メッセージ様式。 */
-.companion-panel { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #f8fafc; } /* 設定同行者入力領域外观。 */
-.companion-title { font-weight: 800; margin-bottom: 10px; color: var(--ink); } /* 設定同行者入力領域標題様式。 */
-.companion-row { display: grid; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); } /* 設定同行者入力行レイアウト。 */
-.companion-row:first-child { border-top: 0; padding-top: 0; } /* 移除第一行同行者ヘッダーボーダー。 */
-@media (max-width: 860px) { /* 定義モバイルレスポンシブ様式入口。 */
-  .topbar { align-items: flex-start; flex-direction: column; padding: 14px 16px; } /* モバイルすべてのナビゲーション栏縦排列。 */
-  .page { width: min(100% - 20px, 1180px); margin-top: 18px; } /* モバイル减少ページ外余白。 */
-  .metrics, .grid-page { grid-template-columns: 1fr; } /* モバイルを卡片と管理页改に单列。 */
-  .metric strong { font-size: 26px; } /* モバイル缩小指標数字。 */
-} /* 終了モバイルレスポンシブ様式。 */
+:root {
+  --ink: #202124;
+  --subtle: #5f6368;
+  --muted: #7a8088;
+  --line: #d8dde3;
+  --line-soft: #edf0f2;
+  --paper: #ffffff;
+  --wash: #f4f5f2;
+  --nav: #263238;
+  --nav-ink: #f7f8f6;
+  --accent: #2f6f5e;
+  --accent-quiet: #e7f1ed;
+  --indigo: #315f8f;
+  --amber: #9a6500;
+  --danger: #a83b32;
+  --danger-quiet: #f8e8e5;
+  --success: #28724d;
+  --shadow: 0 10px 28px rgba(25, 35, 45, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--wash);
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(244, 245, 242, 0) 260px), var(--wash);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 64px;
+  padding: 0 28px;
+  color: var(--nav-ink);
+  background: var(--nav);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 18px rgba(21, 29, 35, 0.14);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.brand::before {
+  content: "";
+  width: 10px;
+  height: 28px;
+  border-radius: 2px;
+  background: #d8b15d;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 4px;
+  color: rgba(247, 248, 246, 0.78);
+  font-weight: 700;
+}
+
+.nav a.active,
+.nav a:hover {
+  color: var(--nav-ink);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.page {
+  width: min(1400px, calc(100% - 40px));
+  margin: 22px auto 56px;
+}
+
+.hero {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0 18px;
+}
+
+.hero h1,
+.panel h1,
+.section-title h2,
+.section-title h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.panel > h1 {
+  margin-bottom: 14px;
+}
+
+.hero p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--subtle);
+}
+
+.eyebrow {
+  color: var(--accent) !important;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.metric {
+  display: grid;
+  gap: 4px;
+  min-height: 96px;
+  padding: 18px 20px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--accent);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+
+.metric span {
+  color: var(--subtle);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metric strong {
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-page {
+  display: grid;
+  grid-template-columns: 324px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.panel {
+  min-width: 0;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+
+.wide {
+  min-width: 0;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.subsection-title {
+  margin-top: 26px !important;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.subsection-title h1 {
+  margin-bottom: 0;
+}
+
+.pager-title {
+  margin-bottom: 10px;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.form-section {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 248, 0.98));
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+}
+
+.section-eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.form-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.form-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.span-2 {
+  grid-column: 1 / -1;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+  color: var(--subtle);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.form-grid label,
+.form-section > label {
+  min-width: 0;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid #cfd6dd;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  outline: none;
+}
+
+textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(47, 111, 94, 0.13);
+}
+
+.field-hint {
+  display: block;
+  min-height: 1em;
+  margin-top: 2px;
+  color: transparent;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.field-hint.is-visible {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.form-submit {
+  min-height: 34px;
+  padding: 7px 14px;
+  justify-self: start;
+}
+
+.check {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.check input {
+  width: auto;
+  min-height: 0;
+}
+
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 12px;
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover,
+.button:hover {
+  filter: brightness(0.96);
+}
+
+.danger {
+  background: var(--danger);
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: #fff;
+}
+
+.table th,
+.table td {
+  padding: 9px 10px;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line-soft);
+  word-break: break-word;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #3f4750;
+  background: #f7f8f5;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.table tbody tr:nth-child(even) td {
+  background: #fbfcfb;
+}
+
+.table tbody tr:hover td {
+  background: #f1f6f4;
+}
+
+.table-placeholder-row {
+  visibility: hidden;
+}
+
+.table-placeholder-row td {
+  background: #fff !important;
+}
+
+.reservation-table,
+.compact-table,
+.dashboard-table,
+.checkout-table,
+.room-table,
+.deleted-room-table,
+.price-table {
+  font-size: 12px;
+}
+
+.dashboard-table {
+  font-size: 11px;
+}
+
+.reservation-table th,
+.reservation-table td,
+.dashboard-table th,
+.dashboard-table td,
+.compact-table th,
+.compact-table td,
+.checkout-table th,
+.checkout-table td,
+.room-table th,
+.room-table td,
+.deleted-room-table th,
+.deleted-room-table td,
+.price-table th,
+.price-table td {
+  padding: 8px 8px;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+  padding: 6px 6px;
+}
+
+.reservation-table th:first-child,
+.reservation-table td:first-child,
+.dashboard-table th:first-child,
+.dashboard-table td:first-child,
+.compact-table th:first-child,
+.compact-table td:first-child,
+.checkout-table th:first-child,
+.checkout-table td:first-child {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.reservation-table td:first-child,
+.dashboard-table td:first-child,
+.compact-table td:first-child,
+.checkout-table td:first-child {
+  color: #1d4f43;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reservation-table td:nth-child(5),
+.reservation-table td:nth-child(6),
+.dashboard-table td:nth-child(5),
+.dashboard-table td:nth-child(6),
+.compact-table td:nth-child(5),
+.compact-table td:nth-child(6),
+.checkout-table td:nth-child(5),
+.checkout-table td:nth-child(6) {
+  color: #363f47;
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.reservation-table th:nth-child(5),
+.reservation-table th:nth-child(6),
+.reservation-table th:nth-child(8),
+.dashboard-table th:nth-child(5),
+.dashboard-table th:nth-child(6),
+.dashboard-table th:nth-child(8),
+.compact-table th:nth-child(5),
+.compact-table th:nth-child(6),
+.compact-table th:nth-child(8),
+.checkout-table th:nth-child(5),
+.checkout-table th:nth-child(6) {
+  color: #2f4f48;
+}
+
+.reservation-table td:nth-child(5),
+.dashboard-table td:nth-child(5),
+.compact-table td:nth-child(5),
+.checkout-table td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.reservation-table td.companion-summary,
+.dashboard-table td.companion-summary,
+.compact-table td.companion-summary,
+.checkout-table td.companion-summary {
+  overflow: visible;
+  white-space: normal;
+}
+
+.table-scroll .reservation-table {
+  /* Preserve all reservation columns and let the wrapper scroll instead of squeezing cells. */
+  min-width: 1320px;
+}
+
+.table-scroll .dashboard-table {
+  /* Dashboard uses the same data shape with tighter column widths. */
+  min-width: 1040px;
+}
+
+.table-scroll .compact-table {
+  /* Cancelled reservations keep the same readable layout without action controls. */
+  min-width: 1280px;
+}
+
+.table-scroll .checkout-table {
+  /* Checkout list has fewer columns, but still needs room for contact and companion details. */
+  min-width: 1180px;
+}
+
+.table-scroll .room-table {
+  min-width: 1060px;
+}
+
+.table-scroll .deleted-room-table {
+  min-width: 860px;
+}
+
+.price-table {
+  min-width: 1120px;
+  font-size: 11px;
+}
+
+.price-table input,
+.price-table select,
+.price-table textarea {
+  min-height: 28px;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.price-table textarea {
+  min-height: 38px;
+}
+
+.price-bulk-form {
+  display: grid;
+  gap: 8px;
+}
+
+.price-bulk-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Reservation and checkout tables use fixed colgroup widths to avoid uneven browser auto-sizing. */
+.col-no {
+  width: 86px;
+}
+.col-room {
+  width: 108px;
+}
+.col-guest {
+  width: 160px;
+}
+.col-count {
+  width: 54px;
+}
+.col-phone {
+  width: 132px;
+}
+.col-email {
+  width: 180px;
+}
+.col-form {
+  width: 80px;
+}
+.col-companion {
+  width: 280px;
+}
+.col-date {
+  width: 128px;
+}
+.col-amount {
+  width: 92px;
+}
+.col-reservation-status {
+  width: 108px;
+}
+.col-payment-status {
+  width: 100px;
+}
+.col-actions {
+  width: 150px;
+}
+.col-delete-actions {
+  width: 84px;
+}
+.col-cleaning-status {
+  width: 94px;
+}
+.col-checkout-actions {
+  width: 180px;
+}
+.room-col-no {
+  width: 76px;
+}
+.room-col-name {
+  width: 108px;
+}
+.room-col-type {
+  width: 78px;
+}
+.room-col-capacity {
+  width: 60px;
+}
+.room-col-price {
+  width: 78px;
+}
+.room-col-status {
+  width: 72px;
+}
+.room-col-cleaning {
+  width: 72px;
+}
+.room-col-update {
+  width: 230px;
+}
+.room-col-delete {
+  width: 64px;
+}
+.room-col-updated {
+  width: 160px;
+}
+.room-col-actions {
+  width: 148px;
+}
+.price-col-select,
+.price-col-check {
+  width: 56px;
+}
+.price-col-room {
+  width: 110px;
+}
+.price-col-rule {
+  width: 124px;
+}
+.price-col-date {
+  width: 92px;
+}
+.price-col-price {
+  width: 78px;
+}
+.price-col-priority {
+  width: 64px;
+}
+.price-col-status {
+  width: 66px;
+}
+.price-col-note {
+  width: 160px;
+}
+.price-col-actions {
+  width: 78px;
+}
+
+/* Compact dashboard overrides keep the first screen dense while preserving the shared colgroup names. */
+.dashboard-table .col-no {
+  width: 68px;
+}
+.dashboard-table .col-room {
+  width: 82px;
+}
+.dashboard-table .col-guest {
+  width: 112px;
+}
+.dashboard-table .col-count {
+  width: 48px;
+}
+.dashboard-table .col-phone {
+  width: 96px;
+}
+.dashboard-table .col-email {
+  width: 120px;
+}
+.dashboard-table .col-form {
+  width: 62px;
+}
+.dashboard-table .col-companion {
+  width: 190px;
+}
+.dashboard-table .col-date {
+  width: 94px;
+}
+.dashboard-table .col-payment-status {
+  width: 76px;
+}
+.dashboard-table .col-reservation-status {
+  width: 76px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 2px 8px;
+  color: var(--indigo);
+  background: #eaf1f8;
+  border: 1px solid #d4e2ef;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tag.is-paid,
+.tag.is-cleaned,
+.tag.is-vacant,
+.tag.is-active {
+  color: #1f6b49;
+  background: #e7f4ed;
+  border-color: #cae5d5;
+}
+
+.tag.is-unpaid,
+.tag.is-cleaning {
+  color: #8a5a00;
+  background: #fff4dd;
+  border-color: #efd49c;
+}
+
+.tag.is-booked,
+.tag.is-occupied {
+  color: #245a88;
+  background: #e7f0f8;
+  border-color: #cfe0ef;
+}
+
+.tag.is-checkout {
+  color: #5b5794;
+  background: #eeedf8;
+  border-color: #d9d6ef;
+}
+
+.tag.is-cancelled,
+.tag.is-muted {
+  color: #6d7278;
+  background: #f1f2f3;
+  border-color: #dcdee1;
+}
+
+.companion-summary {
+  /* Companion summaries can contain names, kana, gender, age, and phone, so allow controlled wrapping. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.45;
+}
+
+.companion-list {
+  /* Render each backend newline as its own visual row to keep multiple companions scannable. */
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.companion-list li {
+  display: grid;
+  gap: 4px;
+  padding: 7px 8px 8px;
+  color: #33423d;
+  background: linear-gradient(180deg, #f8fbf9 0%, #f3f7f4 100%);
+  border: 1px solid #e2ebe6;
+  border-radius: 6px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.companion-name {
+  color: #24312d;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.companion-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.companion-meta-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 1px 6px;
+  color: #5e6963;
+  background: #ffffff;
+  border: 1px solid #dce5df;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.companion-empty {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.person-summary {
+  display: grid;
+  gap: 4px;
+}
+
+.person-name {
+  color: #24312d;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.person-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.person-meta-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 1px 6px;
+  color: #5e6963;
+  background: #ffffff;
+  border: 1px solid #dce5df;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.inline-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0 4px 5px 0;
+}
+
+.inline-form select {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 7px;
+  font-size: 12px;
+}
+
+.inline-form button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.reservation-actions {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.reservation-actions .danger {
+  width: 100%;
+}
+
+.checkout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.checkout-actions button {
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.room-status-form {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+
+.room-status-fields {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+}
+
+.room-status-fields select {
+  min-width: 0;
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.room-status-form button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.actions {
+  min-width: 0;
+}
+
+.actions button,
+.price-actions button {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.pager {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pager-link,
+.pager-state {
+  font-size: 12px;
+}
+
+.pager-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  color: var(--accent);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-weight: 800;
+}
+
+.pager-state {
+  color: var(--subtle);
+  font-weight: 800;
+}
+
+.notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-weight: 800;
+}
+
+.success {
+  color: var(--success);
+  background: #e8f3ed;
+  border: 1px solid #cfe6d8;
+}
+
+.error {
+  color: var(--danger);
+  background: var(--danger-quiet);
+  border: 1px solid #efcfca;
+}
+
+.notice-toast {
+  position: fixed;
+  top: 78px;
+  right: 18px;
+  z-index: 40;
+  max-width: min(420px, calc(100vw - 36px));
+  margin: 0;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+
+.error-panel {
+  display: grid;
+  gap: 12px;
+  max-width: 680px;
+  margin: 64px auto 0;
+}
+
+.error-copy {
+  margin: 0;
+  color: var(--subtle);
+}
+
+.empty {
+  padding: 30px !important;
+  color: var(--muted);
+  text-align: center !important;
+}
+
+.companion-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: #f8faf8;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.companion-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.companion-title {
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.companion-row {
+  display: grid;
+  gap: 0;
+  padding-top: 0;
+}
+
+.companion-row + .companion-row {
+  margin-top: 12px;
+}
+
+.companion-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(31, 41, 51, 0.04);
+}
+
+.companion-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.companion-card-index {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.companion-card-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  color: #7a4c00;
+  background: #fff4dd;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.companion-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.companion-grid label {
+  min-width: 0;
+}
+
+.companion-grid .span-2 {
+  grid-column: 1 / -1;
+}
+
+.contact-toggle {
+  align-self: end;
+  min-height: 32px;
+  padding-top: 20px;
+}
+
+@media (max-width: 980px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .page {
+    width: min(100% - 20px, 1400px);
+    margin-top: 16px;
+  }
+
+  .metrics,
+  .grid-page {
+    grid-template-columns: 1fr;
+  }
+
+  .metric {
+    min-height: 82px;
+  }
+
+  .metric strong {
+    font-size: 28px;
+  }
+
+  .section-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .form-grid-2,
+  .companion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: auto;
+  }
+
+  .contact-toggle {
+    padding-top: 0;
+  }
+}

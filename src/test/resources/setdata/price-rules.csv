@@ -1,0 +1,4 @@
+key,roomId,roomNumber,roomName,ruleName,startDate,endDate,pricePerPerson,priority,active,note
+summer,1,101,桜の間,夏料金,2026-07-01,2026-08-31,12000,1,true,夏季料金
+september,1,101,桜の間,9月料金,2026-09-01,2026-09-30,12000,1,true,9月のテスト料金
+late-september,1,101,桜の間,9月後半料金,2026-09-16,2026-09-30,17000,1,true,9月後半のテスト料金

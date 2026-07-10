@@ -1,133 +1,186 @@
-package com.example.minshuku.controller; // 宣言予約ページテスト所属パッケージ。
+package com.example.minshuku.controller;
 
-import static org.hamcrest.Matchers.containsString; // 読み込み字符串パッケージ含断言工具。
-import static org.mockito.ArgumentMatchers.any; // 読み込み Mockito 任意パラメータ匹配器。
-import static org.mockito.ArgumentMatchers.anyBoolean; // 読み込み Mockito 真偽値匹配器。
-import static org.mockito.Mockito.doThrow; // 読み込み Mockito 例外行に设定メソッド。
-import static org.mockito.Mockito.verify; // 読み込み Mockito 呼び出し検証メソッド。
-import static org.mockito.Mockito.when; // 読み込み Mockito 行に设定メソッド。
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get; // 読み込み GET リクエスト構築メソッド。
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post; // 読み込み POST リクエスト構築メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content; // 読み込みレスポンスコンテンツ断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash; // 読み込み flash 断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model; // 読み込みモデル断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl; // 読み込みリダイレクト URL 断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status; // 読み込み HTTP 状態断言メソッド。
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view; // 読み込み視图名称断言メソッド。
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
-import com.example.minshuku.domain.Reservation; // 読み込み予約エンティティ用構築ページデータ。
-import com.example.minshuku.domain.Room; // 読み込み部屋エンティティ用構築ページデータ。
-import com.example.minshuku.service.ReservationService; // 読み込み被 mock の予約サービス。
-import com.example.minshuku.service.RoomService; // 読み込み被 mock の部屋サービス。
-import java.time.LocalDate; // 読み込み日付型用テストデータ。
-import java.util.List; // 読み込み一覧型用テストデータ。
-import org.junit.jupiter.api.Test; // 読み込み JUnit テストアノテーション。
-import org.springframework.beans.factory.annotation.Autowired; // 読み込みテスト依赖注入アノテーション。
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest; // 読み込み MVC 切り出しテストアノテーション。
-import org.springframework.boot.test.mock.mockito.MockBean; // 読み込み Spring Boot mock bean アノテーション。
-import org.springframework.test.web.servlet.MockMvc; // 読み込み MockMvc テスト宿泊者端。
+import com.example.minshuku.config.SecurityConfig;
+import com.example.minshuku.domain.Reservation;
+import com.example.minshuku.service.ReservationService;
+import com.example.minshuku.service.RoomService;
+import com.example.minshuku.support.LoggedTest;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(ReservationController.class) // のみ加载予約コントローラーと MVC 相关组件。
-class ReservationControllerTest { // 定義予約ページコントローラーテスト。
-  @Autowired private MockMvc mockMvc; // 注入 MockMvc 用模拟 HTTP リクエスト。
-  @MockBean private ReservationService reservationService; // 注入予約サービス mock。
-  @MockBean private RoomService roomService; // 注入部屋サービス mock。
+@WebMvcTest(ReservationController.class)
+@Import(SecurityConfig.class)
+@LoggedTest
+@DisplayName("予約管理画面コントローラー")
+/**
+ * 予約一覧画面の表示、登録、状態更新、CSRF 制御を確認する WebMvc テスト。
+ */
+class ReservationControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+    @MockBean
+    private ReservationService reservationService;
+    @MockBean
+    private RoomService roomService;
 
-  @Test // 標记正常表示予約管理ページのテスト。
-  void reservationsPageShowsActiveAndCancelledReservationsNormally() throws Exception { // テスト予約ページ正常渲染。
-    when(reservationService.findRecentPage(1, 5)).thenReturn(List.of(sampleReservation("booked"))); // 准备有効予約一覧。
-    when(reservationService.findCancelledPage(1, 5)).thenReturn(List.of(sampleReservation("cancelled"))); // 准备取消予約一覧。
-    when(reservationService.findCheckedOutPage(1, 5)).thenReturn(List.of(sampleReservation("checked_out"))); // 准备チェックアウト予約一覧。
-    when(reservationService.countRecent()).thenReturn(1); // 准备有効予約総数。
-    when(reservationService.countCancelled()).thenReturn(1); // 准备取消予約総数。
-    when(reservationService.countCheckedOut()).thenReturn(1); // 准备チェックアウト予約総数。
-    when(roomService.findBookable()).thenReturn(List.of(sampleRoom())); // 准备可能予約部屋一覧。
-    mockMvc.perform(get("/reservations")) // リクエスト予約管理ページ。
-      .andExpect(status().isOk()) // 断言ページレスポンス成功。
-      .andExpect(view().name("reservations")) // 断言返却 reservations 模板。
-      .andExpect(model().attributeExists("reservations", "cancelledReservations", "rooms", "reservation")) // 断言モデルデータ齐全。
-      .andExpect(content().string(containsString("予約一覧"))) // 断言有効予約一覧標題表示。
-      .andExpect(content().string(containsString("取消予約一覧"))) // 断言取消予約一覧標題表示。
-      .andExpect(content().string(containsString("チェックアウト一覧"))); // 断言チェックアウト一覧標題表示。
-  }
+    /**
+     * テストケース名：test_01 reservations Page Shows Active And Cancelled Reservations Normally
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待値と実際値が一致すること。
+     */
+    @DisplayName("test_01 reservations Page Shows Active And Cancelled Reservations Normally")
+    @Test
+    void reservationsPageShowsActiveAndCancelledReservationsNormally() throws Exception {
+        mockMvc.perform(get("/reservations"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("app"))
+                .andExpect(content().string(containsString("<div id=\"root\"></div>")))
+                .andExpect(content().string(containsString("/js/app.js")));
+    }
 
-  @Test // 標记予約登録正常パステスト。
-  void createReservationRedirectsWithSuccessMessage() throws Exception { // テスト予約登録成功。
-    mockMvc.perform(post("/reservations") // 送信予約登録フォーム。
-        .param("roomId", "1") // 設定部屋番号。
-        .param("checkInDate", "2026-07-01") // 設定宿泊日付。
-        .param("checkOutDate", "2026-07-02") // 設定チェックアウト日付。
-        .param("guestName", "山田太郎") // 設定予約宿泊者氏名。
-        .param("guestGender", "男性") // 設定予約宿泊者性別。
-        .param("guestAge", "30") // 設定予約宿泊者年齢。
-        .param("guestPhone", "090-0000-0000") // 設定電話。
-        .param("guestEmail", "guest@example.com") // 設定メール。
-        .param("guestCount", "2") // 設定人数。
-        .param("reservationForm", "電話") // 設定予約形式。
-        .param("paymentStatus", "unpaid") // 設定支払い状態。
-        .param("companionNames", "佐藤花子") // 設定同行者氏名。
-        .param("companionGenders", "女性") // 設定同行者性別。
-        .param("companionAges", "28") // 設定同行者年齢。
-        .param("companionPhones", "080-0000-0000")) // 設定同行者電話。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/reservations")) // 断言リダイレクトへ予約ページ。
-      .andExpect(flash().attribute("message", "予約を登録しました。")); // 断言成功メッセージ。
-    verify(reservationService).create(any(Reservation.class), anyBoolean(), any(), any(), any(), any(), any()); // 検証呼び出し予約登録サービス。
-  }
+    /**
+     * テストケース名：test_02 create Reservation Redirects With Success Message
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_02 create Reservation Redirects With Success Message")
+    @Test
+    void createReservationRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/reservations").with(csrf())
+                .param("roomId", "1")
+                .param("checkInDate", "2026-07-01")
+                .param("checkOutDate", "2026-07-02")
+                .param("guestName", "山田太郎")
+                .param("guestGender", "男性")
+                .param("guestAge", "30")
+                .param("guestPhone", "090-0000-0000")
+                .param("guestEmail", "guest@example.com")
+                .param("guestCount", "2")
+                .param("reservationForm", "電話")
+                .param("paymentStatus", "unpaid")
+                .param("companionNames", "佐藤花子")
+                .param("companionGenders", "女性")
+                .param("companionAges", "28")
+                .param("companionPhones", "080-0000-0000"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/reservations"))
+                .andExpect(flash().attribute("message", "予約を登録しました。"));
+        verify(reservationService).create(any(Reservation.class), anyBoolean(), any(), any(), any(), any(), any());
+    }
 
-  @Test // 標记重複予約エラーパステスト。
-  void createReservationShowsDuplicateReservationError() throws Exception { // テスト重複予約时表示エラーメッセージ。
-    doThrow(new IllegalArgumentException("指定期間はすでに予約されています。")).when(reservationService).create(any(Reservation.class), anyBoolean(), any(), any(), any(), any(), any()); // 准备重複予約例外。
-    mockMvc.perform(post("/reservations").param("roomId", "1").param("guestCount", "2")) // 送信会被サービス拒绝の予約。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/reservations")) // 断言リダイレクトへ予約ページ。
-      .andExpect(flash().attribute("error", "指定期間はすでに予約されています。")); // 断言重複予約エラーメッセージ。
-  }
+    /**
+     * テストケース名：test_03 create Reservation Shows Duplicate Reservation Error
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_03 create Reservation Shows Duplicate Reservation Error")
+    @Test
+    void createReservationShowsDuplicateReservationError() throws Exception {
+        doThrow(new IllegalArgumentException("指定期間はすでに予約されています。")).when(reservationService)
+                .create(any(Reservation.class), anyBoolean(), any(), any(), any(), any(), any());
+        mockMvc.perform(post("/reservations").with(csrf()).param("roomId", "1").param("guestCount", "2"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/reservations"))
+                .andExpect(flash().attribute("error", "指定期間はすでに予約されています。"));
+    }
 
-  @Test // 標记支払い状態更新正常パステスト。
-  void updatePaymentRedirectsWithSuccessMessage() throws Exception { // テスト支払い状態更新成功。
-    mockMvc.perform(post("/reservations/1/payment").param("paymentStatus", "paid")) // 送信支払い状態更新。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/reservations")) // 断言リダイレクトへ予約ページ。
-      .andExpect(flash().attribute("message", "支払い状況を更新しました。")); // 断言成功メッセージ。
-    verify(reservationService).updatePaymentStatus(1, "paid"); // 検証呼び出し支払い状態更新サービス。
-  }
+    /**
+     * テストケース名：test_04 update Payment Redirects With Success Message
+     * テスト条件：更新対象データと更新後の入力値を準備する。
+     * テスト要望：対象データの状態または値が正しく更新されること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_04 update Payment Redirects With Success Message")
+    @Test
+    void updatePaymentRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/reservations/1/payment").with(csrf()).param("paymentStatus", "paid"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/reservations"))
+                .andExpect(flash().attribute("message", "支払い状況を更新しました。"));
+        verify(reservationService).updatePaymentStatus(1, "paid");
+    }
 
-  @Test // 標记取消予約正常パステスト。
-  void cancelReservationRedirectsWithSuccessMessage() throws Exception { // テスト取消予約成功。
-    mockMvc.perform(post("/reservations/1/cancel")) // 送信取消予約リクエスト。
-      .andExpect(status().is3xxRedirection()) // 断言发生リダイレクト。
-      .andExpect(redirectedUrl("/reservations")) // 断言リダイレクトへ予約ページ。
-      .andExpect(flash().attribute("message", "予約をキャンセルしました。")); // 断言成功メッセージ。
-    verify(reservationService).cancel(1); // 検証呼び出し取消予約サービス。
-  }
+    /**
+     * テストケース名：test_05 cancel Reservation Redirects With Success Message
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_05 cancel Reservation Redirects With Success Message")
+    @Test
+    void cancelReservationRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/reservations/1/cancel").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/reservations"))
+                .andExpect(flash().attribute("message", "予約をキャンセルしました。"));
+        verify(reservationService).cancel(1);
+    }
 
-  private Reservation sampleReservation(String status) { // 定義構築予約テストデータのメソッド。
-    Reservation reservation = new Reservation(); // 作成予約オブジェクト。
-    reservation.setReservationNo("RSV-" + status); // 設定予約番号。
-    reservation.setRoomNumber("101"); // 設定部屋番号。
-    reservation.setRoomName("桜の間"); // 設定部屋名称。
-    reservation.setGuestName("山田太郎"); // 設定予約宿泊者氏名。
-    reservation.setGuestGender("男性"); // 設定予約宿泊者性別。
-    reservation.setGuestAge(30); // 設定予約宿泊者年齢。
-    reservation.setGuestPhone("090-0000-0000"); // 設定予約宿泊者電話。
-    reservation.setGuestEmail("guest@example.com"); // 設定予約宿泊者メール。
-    reservation.setGuestCount(2); // 設定人数。
-    reservation.setReservationForm("電話"); // 設定予約形式。
-    reservation.setCompanionSummary("佐藤花子（女性・28歳・080-0000-0000）"); // 設定同行者摘要。
-    reservation.setCheckInDate(LocalDate.of(2026, 7, 1)); // 設定宿泊日付。
-    reservation.setCheckOutDate(LocalDate.of(2026, 7, 2)); // 設定チェックアウト日付。
-    reservation.setPaymentStatus("unpaid"); // 設定支払い状態。
-    reservation.setReservationStatus(status); // 設定予約状態。
-    return reservation; // 返却予約オブジェクト。
-  }
+    /**
+     * テストケース名：test_06 delete Cancelled Reservation Redirects With Success Message
+     * テスト条件：取消済み予約を削除する。
+     * テスト要望：取消済み一覧から完全削除できること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_06 delete Cancelled Reservation Redirects With Success Message")
+    @Test
+    void deleteCancelledReservationRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/reservations/1/delete").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/reservations"))
+                .andExpect(flash().attribute("message", "取消済み予約を削除しました。"));
+        verify(reservationService).deleteCancelled(1);
+    }
 
-  private Room sampleRoom() { // 定義構築可能予約部屋テストデータのメソッド。
-    Room room = new Room(); // 作成部屋オブジェクト。
-    room.setId(1); // 設定部屋主キー。
-    room.setRoomNumber("101"); // 設定部屋番号。
-    room.setRoomName("桜の間"); // 設定部屋名称。
-    room.setCapacity(2); // 設定定員。
-    return room; // 返却部屋オブジェクト。
-  }
+    /**
+     * テストケース名：test_07 delete Checked Out Reservation Redirects With Success Message
+     * テスト条件：チェックアウト済み予約を削除する。
+     * テスト要望：チェックアウト済み一覧から完全削除できること。
+     * テスト結果：期待したリダイレクト先と flash message になること。
+     */
+    @DisplayName("test_07 delete Checked Out Reservation Redirects With Success Message")
+    @Test
+    void deleteCheckedOutReservationRedirectsWithSuccessMessage() throws Exception {
+        mockMvc.perform(post("/reservations/1/delete-checked-out").with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/reservations"))
+                .andExpect(flash().attribute("message", "チェックアウト済み予約を削除しました。"));
+        verify(reservationService).deleteCheckedOut(1);
+    }
+
+    /**
+     * テストケース名：test_07 post Without Csrf Token Is Rejected
+     * テスト条件：CSRF token を付与しない POST リクエストを準備する。
+     * テスト要望：CSRF token がない更新系リクエストを拒否すること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_07 post Without Csrf Token Is Rejected")
+    @Test
+    void postWithoutCsrfTokenIsRejected() throws Exception {
+        mockMvc.perform(post("/reservations").param("roomId", "1"))
+                .andExpect(status().isForbidden());
+    }
+
 }

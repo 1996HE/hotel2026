@@ -1,214 +1,451 @@
-package com.example.minshuku.service; // 宣言予約業務サービス所属パッケージ。
+package com.example.minshuku.service;
 
-import com.example.minshuku.domain.Reservation; // 読み込み予約エンティティ型。
-import com.example.minshuku.domain.ReservationGuest; // 読み込み予約同行者エンティティ型。
-import com.example.minshuku.domain.Room; // 読み込み部屋エンティティ型。
-import com.example.minshuku.domain.RoomPriceRule; // 読み込み料金ルールエンティティ型。
-import com.example.minshuku.mapper.ReservationGuestMapper; // 読み込み予約同行者 Mapper。
-import com.example.minshuku.mapper.ReservationMapper; // 読み込み予約 Mapper。
-import com.example.minshuku.mapper.RoomMapper; // 読み込み部屋 Mapper。
-import com.example.minshuku.mapper.RoomPriceRuleMapper; // 読み込み料金ルール Mapper。
-import java.math.BigDecimal; // 読み込み金額計算使用の高精度数字型。
-import java.time.LocalDate; // 読み込み日付計算使用のローカル日付型。
-import java.time.format.DateTimeFormatter; // 読み込み予約番号日付格式化工具。
-import java.time.temporal.ChronoUnit; // 読み込み住数計算工具。
-import java.util.List; // 読み込み一覧返却型。
-import java.util.regex.Pattern; // 読み込み正则テーブル达式工具用格式検証。
-import org.springframework.stereotype.Service; // 読み込み Spring サービスアノテーション。
-import org.springframework.util.StringUtils; // 読み込み字符串検証工具。
+import com.example.minshuku.domain.Reservation;
+import com.example.minshuku.domain.ReservationGuest;
+import com.example.minshuku.domain.Room;
+import com.example.minshuku.domain.RoomPriceRule;
+import com.example.minshuku.mapper.ReservationGuestMapper;
+import com.example.minshuku.mapper.ReservationMapper;
+import com.example.minshuku.mapper.RoomMapper;
+import com.example.minshuku.mapper.RoomPriceRuleMapper;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
-@Service // 標记このクラスに Spring 管理の業務サービス。
-public class ReservationService { // 定義予約相关業務逻辑。
-  private static final Pattern KANA_PATTERN = Pattern.compile("^[ァ-ヶー\\s]+$"); // 定義全角片仮名与空白の検証ルール。
-  private static final Pattern PHONE_PATTERN = Pattern.compile("^\\d{3}-\\d{4}-\\d{4}$"); // 定義電話号码の検証ルール。
-  private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"); // 定義メールで址の基本検証ルール。
-  private final ReservationMapper reservationMapper; // 保存予約データ访问依赖。
-  private final ReservationGuestMapper reservationGuestMapper; // 保存予約同行者データ访问依赖。
-  private final RoomMapper roomMapper; // 保存部屋データ访问依赖。
-  private final RoomPriceRuleMapper priceRuleMapper; // 保存料金ルールデータ访问依赖。
+/**
+ * 予約登録、状態更新、料金計算、同行者情報の保存を扱うサービス。
+ * <p>
+ * このサービスは予約業務の中核であり、入力検証だけでなく、
+ * 予約番号の発番、客室状態の同期、チェックアウト後の清掃状態更新まで一貫して扱う。
+ */
+@Service
+public class ReservationService {
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Pattern KANA_PATTERN = Pattern.compile("^[ァ-ヶー\\s]+$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^\\d{3}-\\d{4}-\\d{4}$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    private static final Set<String> PAYMENT_STATUSES = Set.of("unpaid", "paid");
+    private static final Set<String> RESERVATION_STATUSES = Set.of("booked", "checked_out", "cancelled");
+    private static final Set<String> CLEANING_STATUSES = Set.of("needs_cleaning", "cleaned");
+    private static final String MESSAGE_INVALID_KANA = "フリガナは全角カタカナで入力してください。";
+    private static final String MESSAGE_INVALID_PHONE = "電話番号は000-0000-0000の形式で入力してください。";
+    private static final String MESSAGE_INVALID_EMAIL = "メールアドレスの形式が正しくありません。";
+    private static final String MESSAGE_INVALID_CLEANING_STATUS = "清掃状態は清掃待ちまたは清掃済のみ選択できます。";
+    private static final String MESSAGE_PAST_CHECK_IN = "チェックイン日は本日以降を選択してください。";
+    private static final String MESSAGE_INVALID_STAY_RANGE = "チェックアウト日はチェックイン日より後にしてください。";
+    private static final int MAX_GUEST_COUNT = 10;
 
-  public ReservationService(ReservationMapper reservationMapper, ReservationGuestMapper reservationGuestMapper, RoomMapper roomMapper, RoomPriceRuleMapper priceRuleMapper) { // 定義構築メソッド用依赖注入。
-    this.reservationMapper = reservationMapper; // 保存注入の予約 Mapper。
-    this.reservationGuestMapper = reservationGuestMapper; // 保存注入の予約同行者 Mapper。
-    this.roomMapper = roomMapper; // 保存注入の部屋 Mapper。
-    this.priceRuleMapper = priceRuleMapper; // 保存注入の料金ルール Mapper。
-  }
+    private final ReservationMapper reservationMapper;
+    private final ReservationGuestMapper reservationGuestMapper;
+    private final RoomMapper roomMapper;
+    private final RoomPriceRuleMapper priceRuleMapper;
 
-  public List<Reservation> findRecent() { // 定義検索近期予約の業務メソッド。
-    return reservationMapper.findRecentPage(5, 0); // 呼び出し Mapper 返却トップページ展示の 5 条近期予約。
-  }
-
-  public List<Reservation> findCancelled() { // 定義検索取消予約の業務メソッド。
-    return reservationMapper.findCancelledPage(5, 0); // 呼び出し Mapper 返却トップページ展示の 5 条取消予約。
-  }
-
-  public List<Reservation> findCheckedOut() { // 定義検索完了チェックアウト予約の業務メソッド。
-    return reservationMapper.findCheckedOutPage(5, 0); // 呼び出し Mapper 返却トップページ展示の 5 条チェックアウトレコード。
-  }
-
-  public List<Reservation> findRecentPage(int page, int pageSize) { // 定義ページング検索近期予約の業務メソッド。
-    int safePage = Math.max(1, page); // 兜底ページ番号至少に 1。
-    int safePageSize = Math.max(1, pageSize); // 兜底每页条数至少に 1。
-    return reservationMapper.findRecentPage(safePageSize, (safePage - 1) * safePageSize); // に页返却近期予約。
-  }
-
-  public List<Reservation> findCancelledPage(int page, int pageSize) { // 定義ページング検索取消予約の業務メソッド。
-    int safePage = Math.max(1, page); // 兜底ページ番号至少に 1。
-    int safePageSize = Math.max(1, pageSize); // 兜底每页条数至少に 1。
-    return reservationMapper.findCancelledPage(safePageSize, (safePage - 1) * safePageSize); // に页返却取消予約。
-  }
-
-  public List<Reservation> findCheckedOutPage(int page, int pageSize) { // 定義ページング検索完了チェックアウト予約の業務メソッド。
-    int safePage = Math.max(1, page); // 兜底ページ番号至少に 1。
-    int safePageSize = Math.max(1, pageSize); // 兜底每页条数至少に 1。
-    return reservationMapper.findCheckedOutPage(safePageSize, (safePage - 1) * safePageSize); // に页返却完了チェックアウト予約。
-  }
-
-  public int countRecent() { // 定義集計近期予約総数の業務メソッド。
-    return reservationMapper.countRecent(); // 呼び出し Mapper 返却近期予約総数。
-  }
-
-  public int countCancelled() { // 定義集計取消予約総数の業務メソッド。
-    return reservationMapper.countCancelled(); // 呼び出し Mapper 返却取消予約総数。
-  }
-
-  public int countCheckedOut() { // 定義集計完了チェックアウト予約総数の業務メソッド。
-    return reservationMapper.countCheckedOut(); // 呼び出し Mapper 返却完了チェックアウト予約総数。
-  }
-
-  public void syncDueCheckouts() { // 定義自動同期へ期チェックアウト状態のメソッド。
-    List<Reservation> dueReservations = reservationMapper.findDueCheckouts(); // 検索へ期必要要チェックアウトの予約。
-    for (Reservation dueReservation : dueReservations) { // 反復所有へ期予約。
-      reservationMapper.markCheckedOut(dueReservation.getId()); // を予約状態更新にチェックアウト完成。
-      roomMapper.updateStatuses(dueReservation.getRoomId(), "vacant", "needs_cleaning"); // を対応部屋同期に空室且待清掃。
-    } // 終了へ期予約反復。
-  } // 終了自動同期へ期チェックアウト状態のメソッド。
-
-  public void create(Reservation reservation, boolean noContactInfo, List<String> companionNames, List<String> companionKanas, List<String> companionGenders, List<Integer> companionAges, List<String> companionPhones) { // 定義新規登録予約と同行者の業務メソッド。
-    validateReservation(reservation, noContactInfo); // 执行予約フォーム基本検証。
-    validateCompanions(reservation, companionNames); // 执行同行者人数と氏名検証。
-    validateCompanionContacts(reservation, companionKanas, companionPhones); // 执行同行者連絡情報検証。
-    Room room = roomMapper.findById(reservation.getRoomId()); // 根据部屋番号検索部屋详情。
-    if (room == null || !Boolean.TRUE.equals(room.getActive())) { throw new IllegalArgumentException("利用可能能な部屋を選択してください。"); } // 検証部屋必须存で且有効。
-    if (!"vacant".equals(room.getOccupancyStatus())) { throw new IllegalArgumentException("空室の部屋のみ予約できます。"); } // 検証のみ有空室部屋可能以予約。
-    if (!"cleaned".equals(room.getCleaningStatus())) { throw new IllegalArgumentException("清掃済みの部屋のみ予約できます。"); } // 検証のみ有清掃済部屋可能以予約。
-    if (reservation.getGuestCount() > room.getCapacity()) { throw new IllegalArgumentException("宿泊人数が部屋の定員を超えています。"); } // 検証宿泊人数非能超过容量。
-    int overlaps = reservationMapper.countOverlapping(reservation.getRoomId(), reservation.getCheckInDate(), reservation.getCheckOutDate()); // 検索同部屋日付重叠の予約件数。
-    if (overlaps > 0) { throw new IllegalArgumentException("指定期間はすでに予約されています。"); } // 阻止重複予約。
-    reservation.setReservationNo(buildReservationNo(reservation)); // 生成と設定予約番号。
-    reservation.setReservationStatus("booked"); // 設定新予約に完了预订状態。
-    if (!StringUtils.hasText(reservation.getPaymentStatus())) { reservation.setPaymentStatus("unpaid"); } // に缺失の支払い状態設定初期値值。
-    if (!StringUtils.hasText(reservation.getReservationForm())) { reservation.setReservationForm("公式"); } // に缺失の予約形式設定初期値值。
-    reservation.setTotalAmount(calculateTotalAmount(reservation, room)); // 計算と設定予定総金額。
-    reservationMapper.insert(reservation); // 呼び出し Mapper 書き込み予約レコード。
-    saveCompanions(reservation.getId(), reservation.getGuestCount(), companionNames, companionKanas, companionGenders, companionAges, companionPhones); // 保存同行者レコード。
-    roomMapper.updateStatuses(room.getId(), "reserved", room.getCleaningStatus()); // 予約成功後を部屋状態更新に予約済。
-  }
-
-  public int countBooked() { // 定義集計有効予約件数の業務メソッド。
-    return reservationMapper.countBooked(); // 呼び出し Mapper 返却有効予約件数。
-  }
-
-  public void updatePaymentStatus(Integer id, String paymentStatus) { // 定義更新支払い状態の業務メソッド。
-    reservationMapper.updatePaymentStatus(id, paymentStatus); // 呼び出し Mapper 書き込み支払い状態。
-  }
-
-  public void updateReservationStatus(Integer id, String reservationStatus) { // 定義更新予約状態の業務メソッド。
-    Reservation reservation = reservationMapper.findById(id); // 検索予約以便同期対応部屋状態。
-    if (reservation == null) { throw new IllegalArgumentException("予約が見つかりません。"); } // 検証予約必须存で。
-    reservationMapper.updateReservationStatus(id, reservationStatus); // 更新予約状態。
-    if ("booked".equals(reservationStatus)) { roomMapper.updateStatuses(reservation.getRoomId(), "reserved", "cleaned"); } // 復元に有効予約时同期部屋状態。
-    if ("checked_out".equals(reservationStatus)) { roomMapper.updateStatuses(reservation.getRoomId(), "vacant", "needs_cleaning"); } // 標记チェックアウト时同期部屋状態。
-  }
-
-  public void updateCheckoutCleaningStatus(Integer id, String cleaningStatus) { // 定義更新チェックアウト一覧中の清掃状態業務メソッド。
-    Reservation reservation = reservationMapper.findById(id); // 検索予約以便同期対応部屋状態。
-    if (reservation == null) { throw new IllegalArgumentException("予約が見つかりません。"); } // 検証予約必须存で。
-    if (!"needs_cleaning".equals(cleaningStatus) && !"cleaned".equals(cleaningStatus)) { throw new IllegalArgumentException("清掃状態は清掃待ちまたは清掃済のみ選択できます。"); } // 仅允许两个清掃状態。
-    roomMapper.updateStatuses(reservation.getRoomId(), "vacant", cleaningStatus); // 仅同期対応部屋の清掃状態。
-  }
-
-  public void cancel(Integer id) { // 定義取消予約の業務メソッド。
-    Reservation reservation = reservationMapper.findById(id); // 検索取消オブジェクト用释放部屋状態。
-    reservationMapper.cancel(id); // 呼び出し Mapper を予約状態改に取消。
-    if (reservation != null) { roomMapper.updateStatuses(reservation.getRoomId(), "vacant", "cleaned"); } // 取消後を対応部屋復元に空室と清掃済。
-  }
-
-  private void validateReservation(Reservation reservation, boolean noContactInfo) { // 定義予約フォーム基本検証メソッド。
-    if (reservation.getRoomId() == null) { throw new IllegalArgumentException("部屋を選択してください。"); } // 検証必须選択部屋。
-    if (reservation.getCheckInDate() == null || reservation.getCheckOutDate() == null) { throw new IllegalArgumentException("宿泊日を入力してください。"); } // 検証宿泊とチェックアウト日付非能に空。
-    if (!reservation.getCheckInDate().isBefore(reservation.getCheckOutDate())) { throw new IllegalArgumentException("チェックアウト日はチェックイン日より後にしてください。"); } // 検証チェックアウト日付必须晚于宿泊日付。
-    if (!StringUtils.hasText(reservation.getGuestName())) { throw new IllegalArgumentException("宿泊者名を入力してください。"); } // 検証住客氏名非能に空。
-    validateOptionalContact(reservation.getGuestKana(), KANA_PATTERN, "フリガナは全角カタカナで入力してください。"); // 検証予約人フリガナ格式。
-    if (!noContactInfo) { // 電話とメールの入力が必要な場合だけ検証する。
-      validateOptionalContact(reservation.getGuestPhone(), PHONE_PATTERN, "電話番号は000-0000-0000の形式で入力してください。"); // 検証予約人電話格式。
-      validateOptionalContact(reservation.getGuestEmail(), EMAIL_PATTERN, "メールアドレスの形式が正しくありません。"); // 検証予約人メール格式。
-    } else { // 連絡先なし予約の場合は空値を明示する。
-      reservation.setGuestPhone(null); // 電話番号を未設定にする。
-      reservation.setGuestEmail(null); // メールアドレスを未設定にする。
-    } // 終了連絡先なし予約の処理。
-    if (reservation.getGuestCount() == null || reservation.getGuestCount() < 1) { throw new IllegalArgumentException("宿泊人数は1名以上にしてください。"); } // 検証宿泊人数必须大于零。
-  }
-
-  private void validateCompanions(Reservation reservation, List<String> companionNames) { // 定義同行者基本検証メソッド。
-    int requiredCount = Math.max(0, reservation.getGuestCount() - 1); // 計算应填写の同行者人数。
-    if (requiredCount == 0) { return; } // 单人予約非必要要同行者情報。
-    if (companionNames == null || companionNames.size() < requiredCount) { throw new IllegalArgumentException("同行者情報を入力してください。"); } // 検証同行者入力行数是否足够。
-    for (int i = 0; i < requiredCount; i++) { // 反復每一位必填同行者。
-      if (!StringUtils.hasText(companionNames.get(i))) { throw new IllegalArgumentException("同行者名を入力してください。"); } // 検証同行者氏名非能に空。
+    public ReservationService(
+            ReservationMapper reservationMapper,
+            ReservationGuestMapper reservationGuestMapper,
+            RoomMapper roomMapper,
+            RoomPriceRuleMapper priceRuleMapper) {
+        this.reservationMapper = reservationMapper;
+        this.reservationGuestMapper = reservationGuestMapper;
+        this.roomMapper = roomMapper;
+        this.priceRuleMapper = priceRuleMapper;
     }
-  }
 
-  private void validateCompanionContacts(Reservation reservation, List<String> companionKanas, List<String> companionPhones) { // 定義同行者連絡情報検証メソッド。
-    int requiredCount = Math.max(0, reservation.getGuestCount() - 1); // 計算应検証の同行者人数。
-    for (int i = 0; i < requiredCount; i++) { // 反復每一位同行者入力。
-      validateOptionalContact(valueAt(companionKanas, i), KANA_PATTERN, "フリガナは全角カタカナで入力してください。"); // 検証同行者フリガナ格式。
-      validateOptionalContact(valueAt(companionPhones, i), PHONE_PATTERN, "電話番号は000-0000-0000の形式で入力してください。"); // 検証同行者電話格式。
+    @Transactional(readOnly = true)
+    public LocalDate currentDate() {
+        return reservationMapper.currentDate();
     }
-  }
 
-  private void validateOptionalContact(String value, Pattern pattern, String message) { // 定義可能空連絡フィールド検証メソッド。
-    if (!StringUtils.hasText(value)) { return; } // 空值直接放行。
-    if (!pattern.matcher(value).matches()) { throw new IllegalArgumentException(message); } // 非空时にルール検証。
-  }
-
-  private void saveCompanions(Integer reservationId, Integer guestCount, List<String> companionNames, List<String> companionKanas, List<String> companionGenders, List<Integer> companionAges, List<String> companionPhones) { // 定義保存同行者のメソッド。
-    int companionCount = Math.max(0, guestCount - 1); // 計算必要要保存の同行者件数。
-    for (int i = 0; i < companionCount; i++) { // 反復每一位同行者入力。
-      ReservationGuest guest = new ReservationGuest(); // 作成同行者エンティティオブジェクト。
-      guest.setReservationId(reservationId); // 設定同行者所属予約番号。
-      guest.setGuestName(valueAt(companionNames, i)); // 設定同行者氏名。
-      guest.setGuestKana(valueAt(companionKanas, i)); // 設定同行者仮名。
-      guest.setGuestGender(valueAt(companionGenders, i)); // 設定同行者性別。
-      guest.setGuestAge(integerAt(companionAges, i)); // 設定同行者年齢。
-      guest.setGuestPhone(valueAt(companionPhones, i)); // 設定同行者電話。
-      reservationGuestMapper.insert(guest); // 呼び出し Mapper 書き込み同行者レコード。
+    @Transactional(readOnly = true)
+    public List<Reservation> findRecent() {
+        return reservationMapper.findRecentPage(5, 0);
     }
-  }
 
-  private String valueAt(List<String> values, int index) { // 定義安全読み込み一覧元素のメソッド。
-    return values == null || values.size() <= index ? null : values.get(index); // 返却指定下標の值，缺失时返却空值。
-  }
-
-  private Integer integerAt(List<Integer> values, int index) { // 定義安全読み込み整数一覧元素のメソッド。
-    return values == null || values.size() <= index ? null : values.get(index); // 返却指定下標の整数，缺失时返却空值。
-  }
-
-  private String buildReservationNo(Reservation reservation) { // 定義予約番号生成メソッド。
-    String datePart = reservation.getCheckInDate().format(DateTimeFormatter.BASIC_ISO_DATE); // を宿泊日付格式化に yyyyMMdd。
-    String timePart = String.valueOf(System.nanoTime()).substring(5, 11); // から纳秒時間截取短序列减少冲突概率。
-    return "RSV-" + datePart + "-" + timePart; // 拼接と返却予約番号。
-  }
-
-  private BigDecimal calculateTotalAmount(Reservation reservation, Room room) { // 定義住宿総金額計算メソッド。
-    BigDecimal total = BigDecimal.ZERO; // 初始化累计金額に零。
-    LocalDate stayDate = reservation.getCheckInDate(); // から宿泊日付開始逐晚計算。
-    while (stayDate.isBefore(reservation.getCheckOutDate())) { // 循环覆盖每个实际住宿夜晚。
-      RoomPriceRule rule = priceRuleMapper.findBestRule(reservation.getRoomId(), stayDate); // 検索現在日付命中の最高优先级料金ルール。
-      BigDecimal price = rule == null ? room.getBasePricePerPerson() : rule.getPricePerPerson(); // 优先使用时令价，なしルール则使用基本价。
-      total = total.add(price.multiply(BigDecimal.valueOf(reservation.getGuestCount()))); // に宿泊人数累加当晚金額。
-      stayDate = stayDate.plus(1, ChronoUnit.DAYS); // 日付推进へ下一晚。
+    @Transactional(readOnly = true)
+    public List<Reservation> findCancelled() {
+        return reservationMapper.findCancelledPage(5, 0);
     }
-    return total; // 返却累计後の住宿総金額。
-  }
+
+    @Transactional(readOnly = true)
+    public List<Reservation> findCheckedOut() {
+        return reservationMapper.findCheckedOutPage(5, 0);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Reservation> findRecentPage(int page, int pageSize) {
+        int safePageSize = safePageSize(pageSize);
+        return reservationMapper.findRecentPage(safePageSize, pageOffset(page, safePageSize));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Reservation> findCancelledPage(int page, int pageSize) {
+        int safePageSize = safePageSize(pageSize);
+        return reservationMapper.findCancelledPage(safePageSize, pageOffset(page, safePageSize));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Reservation> findCheckedOutPage(int page, int pageSize) {
+        int safePageSize = safePageSize(pageSize);
+        return reservationMapper.findCheckedOutPage(safePageSize, pageOffset(page, safePageSize));
+    }
+
+    @Transactional(readOnly = true)
+    public int countRecent() {
+        return reservationMapper.countRecent();
+    }
+
+    @Transactional(readOnly = true)
+    public int countCancelled() {
+        return reservationMapper.countCancelled();
+    }
+
+    @Transactional(readOnly = true)
+    public int countCheckedOut() {
+        return reservationMapper.countCheckedOut();
+    }
+
+    @Transactional
+    public void syncDueCheckouts() {
+        // 予約日時点で宿泊終了に達している予約を回収し、客室状態を予約業務側で同期する。
+        List<Reservation> dueReservations = reservationMapper.findDueCheckouts();
+        for (Reservation dueReservation : dueReservations) {
+            reservationMapper.markCheckedOut(dueReservation.getId());
+            // チェックアウト済みにした客室は「空室 + 清掃待ち」に戻す。
+            roomMapper.updateStatuses(dueReservation.getRoomId(), "vacant", "needs_cleaning");
+        }
+    }
+
+    /**
+     * 予約登録に必要な入力チェック、客室ロック、重複予約確認、料金計算を一つのトランザクションで実行する。
+     */
+    @Transactional
+    public void create(
+            Reservation reservation,
+            boolean noContactInfo,
+            List<String> companionNames,
+            List<String> companionKanas,
+            List<String> companionGenders,
+            List<Integer> companionAges,
+            List<String> companionPhones) {
+        // 予約作成は、入力検証 -> 競合確認 -> 番号発番 -> 保存 -> 同行者保存 -> 客室状態更新の順で行う。
+        validateReservation(reservation, noContactInfo);
+        validateCompanions(reservation, companionNames);
+        validateCompanionContacts(reservation, companionKanas, companionPhones);
+
+        // 予約対象の客室はロック付きで取得し、並行更新による二重予約を防ぐ。
+        Room room = roomMapper.findByIdForUpdate(reservation.getRoomId());
+        validateRoomForReservation(reservation, room);
+        validateNoOverlappingReservation(reservation);
+
+        reservation.setReservationNo(nextReservationNo());
+        reservation.setReservationStatus("booked");
+        if (!StringUtils.hasText(reservation.getPaymentStatus())) {
+            // 入金情報が未入力の場合は未入金を初期値とする。
+            reservation.setPaymentStatus("unpaid");
+        }
+        if (!StringUtils.hasText(reservation.getReservationForm())) {
+            // 予約経路が未指定の場合は公式予約として扱う。
+            reservation.setReservationForm("公式");
+        }
+
+        // 料金は宿泊日ごとに単価を積み上げて算出し、予約保存時点で確定する。
+        reservation.setTotalAmount(calculateTotalAmount(reservation, room));
+        reservationMapper.insert(reservation);
+        // 予約本体のID確定後に同行者を保存する。同行者は予約人数から1名分を差し引いて管理する。
+        saveCompanions(
+                reservation.getId(),
+                reservation.getGuestCount(),
+                companionNames,
+                companionKanas,
+                companionGenders,
+                companionAges,
+                companionPhones);
+        // 予約成立後は客室を予約済みに切り替える。
+        roomMapper.updateStatuses(room.getId(), "reserved", room.getCleaningStatus());
+    }
+
+    @Transactional(readOnly = true)
+    public int countBooked() {
+        return reservationMapper.countBooked();
+    }
+
+    @Transactional
+    public void updatePaymentStatus(Integer id, String paymentStatus) {
+        // 支払い状態は業務上の許可値だけを受け付ける。
+        requireAllowed(paymentStatus, PAYMENT_STATUSES, "支払い状態が正しくありません。");
+        if (reservationMapper.updatePaymentStatus(id, paymentStatus) == 0) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+    }
+
+    /**
+     * 予約状態を更新し、客室の宿泊状態・清掃状態を予約状態に合わせて同期する。
+     */
+    @Transactional
+    public void updateReservationStatus(Integer id, String reservationStatus) {
+        // 予約状態の変更は、予約本体と客室状態の整合を必ずセットで保つ。
+        requireAllowed(reservationStatus, RESERVATION_STATUSES, "予約状態が正しくありません。");
+
+        Reservation reservation = reservationMapper.findById(id);
+        if (reservation == null) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+        if (reservationMapper.updateReservationStatus(id, reservationStatus) == 0) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+        if ("booked".equals(reservationStatus)) {
+            // 予約中に戻す場合は、客室を予約済みに復帰させる。
+            roomMapper.updateStatuses(reservation.getRoomId(), "reserved", "cleaned");
+        }
+        if ("checked_out".equals(reservationStatus)) {
+            // 他の予約中データが残る場合は、客室を空室に戻さず予約済み状態を維持する。
+            updateRoomAfterReservationRelease(reservation, "needs_cleaning");
+        }
+    }
+
+    @Transactional
+    public void updateCheckoutCleaningStatus(Integer id, String cleaningStatus) {
+        Reservation reservation = reservationMapper.findById(id);
+        if (reservation == null) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+
+        // 清掃状態の更新は、チェックアウト後の客室運用に限定する。
+        if (!"checked_out".equals(reservation.getReservationStatus())) {
+            throw new IllegalArgumentException("チェックアウト済み予約のみ清掃状態を更新できます。");
+        }
+        requireAllowed(cleaningStatus, CLEANING_STATUSES, MESSAGE_INVALID_CLEANING_STATUS);
+        roomMapper.updateStatuses(reservation.getRoomId(), "vacant", cleaningStatus);
+    }
+
+    @Transactional
+    public void cancel(Integer id) {
+        Reservation reservation = reservationMapper.findById(id);
+        if (reservationMapper.cancel(id) == 0) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+        if (reservation != null) {
+            // 取消済みにした客室は、他の予約がなければ通常の空室・清掃済み状態へ戻す。
+            updateRoomAfterReservationRelease(reservation, "cleaned");
+        }
+    }
+
+    /**
+     * 取消済み予約を一覧から完全削除する。
+     */
+    @Transactional
+    public void deleteCancelled(Integer id) {
+        Reservation reservation = reservationMapper.findById(id);
+        if (reservation == null) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+        if (!"cancelled".equals(reservation.getReservationStatus())) {
+            throw new IllegalArgumentException("取消済み予約のみ削除できます。");
+        }
+        if (reservationMapper.deleteCancelled(id) == 0) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+    }
+
+    /**
+     * チェックアウト済み予約を一覧から完全削除する。
+     */
+    @Transactional
+    public void deleteCheckedOut(Integer id) {
+        Reservation reservation = reservationMapper.findById(id);
+        if (reservation == null) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+        if (!"checked_out".equals(reservation.getReservationStatus())) {
+            throw new IllegalArgumentException("チェックアウト済み予約のみ削除できます。");
+        }
+        if (reservationMapper.deleteCheckedOut(id) == 0) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+    }
+
+    private void updateRoomAfterReservationRelease(Reservation reservation, String cleaningStatusWhenVacant) {
+        int otherBookedReservations = reservationMapper.countOtherBookedByRoomId(
+                reservation.getRoomId(),
+                reservation.getId());
+        if (otherBookedReservations > 0) {
+            roomMapper.updateStatuses(reservation.getRoomId(), "reserved", "cleaned");
+            return;
+        }
+        roomMapper.updateStatuses(reservation.getRoomId(), "vacant", cleaningStatusWhenVacant);
+    }
+
+    private String nextReservationNo() {
+        return "R" + String.format("%06d", reservationMapper.nextReservationSequence());
+    }
+
+    private void requireAllowed(String value, Set<String> allowedValues, String message) {
+        if (!StringUtils.hasText(value) || !allowedValues.contains(value)) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private int safePageSize(int pageSize) {
+        // 画面やAPIから極端なページサイズを受け取ってもDB負荷を一定範囲に抑える。
+        return Math.min(MAX_PAGE_SIZE, Math.max(1, pageSize));
+    }
+
+    private int pageOffset(int page, int safePageSize) {
+        // 1未満のページ指定は1ページ目として扱う。
+        int safePage = Math.max(1, page);
+        return (safePage - 1) * safePageSize;
+    }
+
+    private void validateReservation(Reservation reservation, boolean noContactInfo) {
+        // 予約登録の入口で、業務上の必須条件を先に止める。
+        if (reservation.getRoomId() == null) {
+            throw new IllegalArgumentException("部屋を選択してください。");
+        }
+        if (reservation.getCheckInDate() == null || reservation.getCheckOutDate() == null) {
+            throw new IllegalArgumentException("宿泊日を入力してください。");
+        }
+        if (reservation.getCheckInDate().isBefore(currentDate())) {
+            // システム日付を基準に、過去日付の予約を拒否する。
+            throw new IllegalArgumentException(MESSAGE_PAST_CHECK_IN);
+        }
+        if (!reservation.getCheckInDate().isBefore(reservation.getCheckOutDate())) {
+            throw new IllegalArgumentException(MESSAGE_INVALID_STAY_RANGE);
+        }
+        if (!StringUtils.hasText(reservation.getGuestName())) {
+            throw new IllegalArgumentException("宿泊者名を入力してください。");
+        }
+
+        validateOptionalContact(reservation.getGuestKana(), KANA_PATTERN, MESSAGE_INVALID_KANA);
+
+        if (!noContactInfo) {
+            // 連絡先を提供する運用では電話・メールの形式を両方確認する。
+            validateOptionalContact(reservation.getGuestPhone(), PHONE_PATTERN, MESSAGE_INVALID_PHONE);
+            validateOptionalContact(reservation.getGuestEmail(), EMAIL_PATTERN, MESSAGE_INVALID_EMAIL);
+        } else {
+            // 連絡先非保持モードでは、DBに空文字ではなく NULL を保存する。
+            reservation.setGuestPhone(null);
+            reservation.setGuestEmail(null);
+        }
+        if (reservation.getGuestCount() == null || reservation.getGuestCount() < 1) {
+            throw new IllegalArgumentException("宿泊人数は1名以上にしてください。");
+        }
+        if (reservation.getGuestCount() > MAX_GUEST_COUNT) {
+            throw new IllegalArgumentException("宿泊人数は10名以下にしてください。");
+        }
+    }
+
+    private void validateRoomForReservation(Reservation reservation, Room room) {
+        // 予約対象の客室は、営業中・空室・清掃済みの3条件をすべて満たす必要がある。
+        if (room == null || !Boolean.TRUE.equals(room.getActive())) {
+            throw new IllegalArgumentException("利用可能な部屋を選択してください。");
+        }
+        if (!"vacant".equals(room.getOccupancyStatus())) {
+            throw new IllegalArgumentException("空室の部屋のみ予約できます。");
+        }
+        if (!"cleaned".equals(room.getCleaningStatus())) {
+            throw new IllegalArgumentException("清掃済みの部屋のみ予約できます。");
+        }
+        if (reservation.getGuestCount() > room.getCapacity()) {
+            throw new IllegalArgumentException("宿泊人数が部屋の定員を超えています。");
+        }
+    }
+
+    private void validateNoOverlappingReservation(Reservation reservation) {
+        // 同一客室で宿泊期間が重なる予約を防止する。
+        int overlaps = reservationMapper.countOverlapping(
+                reservation.getRoomId(),
+                reservation.getCheckInDate(),
+                reservation.getCheckOutDate());
+
+        if (overlaps > 0) {
+            throw new IllegalArgumentException("指定期間はすでに予約されています。");
+        }
+    }
+
+    private void validateCompanions(Reservation reservation, List<String> companionNames) {
+        // 宿泊人数が2名以上の場合、1名を超える人数分の同行者を必須入力とする。
+        int requiredCount = Math.max(0, reservation.getGuestCount() - 1);
+        if (requiredCount == 0) {
+            return;
+        }
+        if (companionNames == null || companionNames.size() < requiredCount) {
+            throw new IllegalArgumentException("同行者情報を入力してください。");
+        }
+
+        for (int i = 0; i < requiredCount; i++) {
+            if (!StringUtils.hasText(companionNames.get(i))) {
+                throw new IllegalArgumentException("同行者名を入力してください。");
+            }
+        }
+    }
+
+    private void validateCompanionContacts(
+            Reservation reservation,
+            List<String> companionKanas,
+            List<String> companionPhones) {
+        // 同行者ごとに、入力された項目だけ業務形式チェックを行う。
+        int requiredCount = Math.max(0, reservation.getGuestCount() - 1);
+        for (int i = 0; i < requiredCount; i++) {
+            validateOptionalContact(valueAt(companionKanas, i), KANA_PATTERN, MESSAGE_INVALID_KANA);
+            validateOptionalContact(valueAt(companionPhones, i), PHONE_PATTERN, MESSAGE_INVALID_PHONE);
+        }
+    }
+
+    private void validateOptionalContact(String value, Pattern pattern, String message) {
+        if (!StringUtils.hasText(value)) {
+            return;
+        }
+        if (!pattern.matcher(value).matches()) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
+    private void saveCompanions(
+            Integer reservationId,
+            Integer guestCount,
+            List<String> companionNames,
+            List<String> companionKanas,
+            List<String> companionGenders,
+            List<Integer> companionAges,
+            List<String> companionPhones) {
+        // 同行者は予約本体とは別テーブルへ分割保存し、一覧表示や将来の拡張に備える。
+        int companionCount = Math.max(0, guestCount - 1);
+        for (int i = 0; i < companionCount; i++) {
+            ReservationGuest guest = new ReservationGuest();
+            guest.setReservationId(reservationId);
+            guest.setGuestName(valueAt(companionNames, i));
+            guest.setGuestKana(valueAt(companionKanas, i));
+            guest.setGuestGender(valueAt(companionGenders, i));
+            guest.setGuestAge(integerAt(companionAges, i));
+            guest.setGuestPhone(valueAt(companionPhones, i));
+            reservationGuestMapper.insert(guest);
+        }
+    }
+
+    private String valueAt(List<String> values, int index) {
+        return values == null || values.size() <= index ? null : values.get(index);
+    }
+
+    private Integer integerAt(List<Integer> values, int index) {
+        return values == null || values.size() <= index ? null : values.get(index);
+    }
+
+    private BigDecimal calculateTotalAmount(Reservation reservation, Room room) {
+        // 日別の最優先料金ルールを積み上げる。未設定日は客室基本単価を採用する。
+        BigDecimal total = BigDecimal.ZERO;
+        LocalDate stayDate = reservation.getCheckInDate();
+        while (stayDate.isBefore(reservation.getCheckOutDate())) {
+            RoomPriceRule rule = priceRuleMapper.findBestRule(reservation.getRoomId(), stayDate);
+            BigDecimal price = rule == null ? room.getBasePricePerPerson() : rule.getPricePerPerson();
+            total = total.add(price.multiply(BigDecimal.valueOf(reservation.getGuestCount())));
+            stayDate = stayDate.plus(1, ChronoUnit.DAYS);
+        }
+        return total;
+    }
 }

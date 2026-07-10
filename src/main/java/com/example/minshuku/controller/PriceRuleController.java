@@ -1,66 +1,61 @@
-package com.example.minshuku.controller; // 宣言料金ルールコントローラー所属パッケージ。
+package com.example.minshuku.controller;
 
-import com.example.minshuku.domain.RoomPriceRule; // 読み込み料金ルールエンティティ型。
-import com.example.minshuku.service.RoomPriceRuleService; // 読み込み料金ルール業務サービス。
-import com.example.minshuku.service.RoomService; // 読み込み部屋業務サービス。
-import java.util.List; // 読み込み料金ルール番号一覧型。
-import org.springframework.stereotype.Controller; // 読み込み Spring MVC ページコントローラーアノテーション。
-import org.springframework.ui.Model; // 読み込みページモデルオブジェクト。
-import org.springframework.web.bind.annotation.GetMapping; // 読み込み GET ルーティングアノテーション。
-import org.springframework.web.bind.annotation.ModelAttribute; // 読み込みフォームオブジェクト绑定アノテーション。
-import org.springframework.web.bind.annotation.PostMapping; // 読み込み POST ルーティングアノテーション。
-import org.springframework.web.bind.annotation.PathVariable; // 読み込みパス変数绑定アノテーション。
-import org.springframework.web.bind.annotation.RequestParam; // 読み込みリクエストパラメータ绑定アノテーション。
-import org.springframework.web.servlet.mvc.support.RedirectAttributes; // 読み込みリダイレクト临时メッセージオブジェクト。
+import com.example.minshuku.domain.RoomPriceRule;
+import com.example.minshuku.service.RoomPriceRuleService;
+import java.util.List;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-@Controller // 標记このクラス処理 Thymeleaf ページリクエスト。
-public class PriceRuleController { // 定義时令料金管理コントローラー。
-  private final RoomPriceRuleService priceRuleService; // 保存料金ルール業務サービス依赖。
-  private final RoomService roomService; // 保存部屋業務サービス依赖。
+/**
+ * 客室別料金ルール画面の表示と登録・削除を担当するコントローラー。
+ */
+@Controller
+public class PriceRuleController {
+    private final RoomPriceRuleService priceRuleService;
 
-  public PriceRuleController(RoomPriceRuleService priceRuleService, RoomService roomService) { // 定義構築メソッド用依赖注入。
-    this.priceRuleService = priceRuleService; // 保存注入の料金ルール業務サービス。
-    this.roomService = roomService; // 保存注入の部屋業務サービス。
-  }
-
-  @GetMapping("/prices") // を料金管理パス映射へページ処理メソッド。
-  public String prices(Model model) { // 料金管理ページ処理を定義。
-    model.addAttribute("rules", priceRuleService.findAllWithRoom()); // 向ページ传递料金ルール一覧。
-    model.addAttribute("rooms", roomService.findActive()); // 向ページ传递有効部屋一覧。
-    model.addAttribute("rule", new RoomPriceRule()); // 向ページ传递新規登録料金ルールフォームオブジェクト。
-    return "prices"; // 返却 prices.html 模板。
-  }
-
-  @PostMapping("/prices") // を新規登録料金ルールフォーム送信パス映射へ処理メソッド。
-  public String create(@ModelAttribute RoomPriceRule rule, RedirectAttributes redirectAttributes) { // 料金ルール追加処理を定義。
-    try { // 捕获業務検証例外と转成ページメッセージ。
-      priceRuleService.create(rule); // 呼び出し業務サービス新規登録料金ルール。
-      redirectAttributes.addFlashAttribute("message", "料金ルールを登録しました。"); // 設定新規登録成功メッセージ。
-    } catch (IllegalArgumentException ex) { // 捕获フォーム検証例外。
-      redirectAttributes.addFlashAttribute("error", ex.getMessage()); // 設定エラーメッセージメッセージ。
+    public PriceRuleController(RoomPriceRuleService priceRuleService) {
+        this.priceRuleService = priceRuleService;
     }
-    return "redirect:/prices"; // リダイレクト回料金管理页避免重複送信。
-  }
 
-  @PostMapping({"/prices/{id}", "/prices/{id}/delete"}) // を单条削除パス映射へ処理メソッド，と兼容旧ページパス。
-  public String delete(@PathVariable Integer id, RedirectAttributes redirectAttributes) { // 料金ルール削除処理を定義。
-    try { // 捕获業務検証例外と转成ページメッセージ。
-      priceRuleService.delete(id); // 呼び出し業務サービス削除单条料金ルール。
-      redirectAttributes.addFlashAttribute("message", "料金ルールを削除しました。"); // 設定削除成功メッセージ。
-    } catch (IllegalArgumentException ex) { // 捕获フォーム検証例外。
-      redirectAttributes.addFlashAttribute("error", ex.getMessage()); // 設定エラーメッセージメッセージ。
+    /**
+     * 料金ルール一覧と登録フォームの初期値を表示する。
+     */
+    @GetMapping("/prices")
+    public String prices() {
+        return "app";
     }
-    return "redirect:/prices"; // リダイレクト回料金管理页。
-  }
 
-  @PostMapping("/prices/delete-selected") // を一括削除パス映射へ処理メソッド。
-  public String deleteSelected(@RequestParam(name = "ids", required = false) List<Integer> ids, RedirectAttributes redirectAttributes) { // 料金ルール一括削除処理を定義。
-    try { // 捕获業務検証例外と转成ページメッセージ。
-      priceRuleService.deleteByIds(ids); // 呼び出し業務サービス一括削除料金ルール。
-      redirectAttributes.addFlashAttribute("message", "料金ルールを削除しました。"); // 設定削除成功メッセージ。
-    } catch (IllegalArgumentException ex) { // 捕获フォーム検証例外。
-      redirectAttributes.addFlashAttribute("error", ex.getMessage()); // 設定エラーメッセージメッセージ。
+    /**
+     * 料金ルールを登録する。入力エラーは画面表示用の flash attribute に変換する。
+     */
+    @PostMapping("/prices")
+    public String create(@ModelAttribute RoomPriceRule rule, RedirectAttributes redirectAttributes) {
+        // 料金設定はそのまま予約金額に反映されるため、入力エラーは即座に返す。
+        priceRuleService.create(rule);
+        redirectAttributes.addFlashAttribute("message", "料金ルールを登録しました。");
+        return "redirect:/prices";
     }
-    return "redirect:/prices"; // リダイレクト回料金管理页。
-  }
+
+    @PostMapping({"/prices/{id}", "/prices/{id}/delete"})
+    public String delete(@PathVariable Integer id, RedirectAttributes redirectAttributes) {
+        // 旧URL互換を残しつつ、単一削除を同じ業務処理へ寄せる。
+        priceRuleService.delete(id);
+        redirectAttributes.addFlashAttribute("message", "料金ルールを削除しました。");
+        return "redirect:/prices";
+    }
+
+    @PostMapping("/prices/delete-selected")
+    public String deleteSelected(
+            @RequestParam(name = "ids", required = false) List<Integer> ids,
+            RedirectAttributes redirectAttributes) {
+        // 一覧画面の複数選択削除は、空入力や重複選択をサービス側で正規化する。
+        priceRuleService.deleteByIds(ids);
+        redirectAttributes.addFlashAttribute("message", "料金ルールを削除しました。");
+        return "redirect:/prices";
+    }
 }

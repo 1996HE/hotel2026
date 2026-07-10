@@ -1,0 +1,8 @@
+key,roomNumber,roomName,roomType,capacity,basePricePerPerson,privateBath,occupancyStatus,cleaningStatus,active,note
+bookable,101,桜の間,washitsu,2,8800,false,vacant,cleaned,true,予約可能な部屋
+occupied,102,竹の間,washitsu,3,9800,false,occupied,cleaned,true,利用中の部屋
+dirty,103,海の間,yoshitsu,2,11800,true,vacant,needs_cleaning,true,清掃待ちの部屋
+inactive,104,山の間,family,5,12800,true,vacant,cleaned,false,無効化済みの部屋
+spare,105,川の間,family,4,15000,false,vacant,cleaned,true,予備の部屋
+rule,106,花の間,washitsu,2,16000,false,vacant,cleaned,true,料金ルール確認用の部屋
+new-room,201,月の間,family,4,22000,true,vacant,cleaned,true,新規登録確認用の部屋

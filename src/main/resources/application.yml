@@ -1,22 +1,48 @@
 server:
   port: 8000
+  servlet:
+    context-path: ${APP_CONTEXT_PATH:/jukai-internal}
+  server-header:
+  error:
+    whitelabel:
+      enabled: false
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+  tomcat:
+    threads:
+      max: ${SERVER_TOMCAT_THREADS_MAX:100}
+      min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:10}
+    accept-count: ${SERVER_TOMCAT_ACCEPT_COUNT:100}
+    connection-timeout: ${SERVER_TOMCAT_CONNECTION_TIMEOUT:5s}
 
 spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   application:
     name: minshuku-management
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:55432/minshuku}
     username: ${DB_USERNAME:minshuku}
-    password: ${DB_PASSWORD:minshuku}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:5000}
+      idle-timeout: ${DB_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
+      leak-detection-threshold: ${DB_LEAK_DETECTION_THRESHOLD_MS:20000}
   sql:
     init:
-      mode: always
+      mode: ${SQL_INIT_MODE:never}
       schema-locations: classpath:db/schema.sql
       data-locations: classpath:db/data.sql
-      continue-on-error: true
+      continue-on-error: ${SQL_INIT_CONTINUE_ON_ERROR:false}
   thymeleaf:
-    cache: false
+    cache: ${THYMELEAF_CACHE:false}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -25,4 +51,4 @@ mybatis:
 
 logging:
   level:
-    com.example.minshuku.mapper: debug
+    com.example.minshuku.mapper: ${MYBATIS_LOG_LEVEL:info}

@@ -1,31 +1,88 @@
-package com.example.minshuku.domain; // 宣言同行者エンティティ所属のドメインモデルパッケージ。
+package com.example.minshuku.domain;
 
-import java.time.OffsetDateTime; // 読み込みデータベースタイムスタンプフィールド使用の時間型。
+import java.time.OffsetDateTime;
 
-public class ReservationGuest { // 定義予約同行者エンティティ，対応 reservation_guests テーブル。
-  private Integer id; // 保存同行者主キー番号。
-  private Integer reservationId; // 保存所属予約主キー番号。
-  private String guestName; // 保存同行者氏名。
-  private String guestKana; // 保存同行者仮名読み。
-  private String guestGender; // 保存同行者性別。
-  private Integer guestAge; // 保存同行者年齢。
-  private String guestPhone; // 保存同行者電話。
-  private OffsetDateTime createdAt; // 保存作成時間。
+/**
+ * 予約に紐づく同行者情報を保持するドメインオブジェクト。
+ * <p>
+ * 宿泊者本体とは分離し、人数の増減や一覧表示の柔軟性を保つための明細として扱う。
+ */
+public class ReservationGuest {
+    // 同行者明細の識別情報。reservationId で予約本体へ紐づく。
+    private Integer id;
+    private Integer reservationId;
 
-  public Integer getId() { return id; } // 返却同行者主キー番号。
-  public void setId(Integer id) { this.id = id; } // 設定同行者主キー番号。
-  public Integer getReservationId() { return reservationId; } // 返却所属予約番号。
-  public void setReservationId(Integer reservationId) { this.reservationId = reservationId; } // 設定所属予約番号。
-  public String getGuestName() { return guestName; } // 返却同行者氏名。
-  public void setGuestName(String guestName) { this.guestName = guestName; } // 設定同行者氏名。
-  public String getGuestKana() { return guestKana; } // 返却同行者仮名読み。
-  public void setGuestKana(String guestKana) { this.guestKana = guestKana; } // 設定同行者仮名読み。
-  public String getGuestGender() { return guestGender; } // 返却同行者性別。
-  public void setGuestGender(String guestGender) { this.guestGender = guestGender; } // 設定同行者性別。
-  public Integer getGuestAge() { return guestAge; } // 返却同行者年齢。
-  public void setGuestAge(Integer guestAge) { this.guestAge = guestAge; } // 設定同行者年齢。
-  public String getGuestPhone() { return guestPhone; } // 返却同行者電話。
-  public void setGuestPhone(String guestPhone) { this.guestPhone = guestPhone; } // 設定同行者電話。
-  public OffsetDateTime getCreatedAt() { return createdAt; } // 返却作成時間。
-  public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; } // 設定作成時間。
+    // 同行者本人の宿泊者情報。
+    private String guestName;
+    private String guestKana;
+    private String guestGender;
+    private Integer guestAge;
+    private String guestPhone;
+
+    // 同行者登録日時。
+    private OffsetDateTime createdAt;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public Integer getReservationId() {
+        return reservationId;
+    }
+
+    public void setReservationId(Integer reservationId) {
+        this.reservationId = reservationId;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public void setGuestName(String guestName) {
+        this.guestName = guestName;
+    }
+
+    public String getGuestKana() {
+        return guestKana;
+    }
+
+    public void setGuestKana(String guestKana) {
+        this.guestKana = guestKana;
+    }
+
+    public String getGuestGender() {
+        return guestGender;
+    }
+
+    public void setGuestGender(String guestGender) {
+        this.guestGender = guestGender;
+    }
+
+    public Integer getGuestAge() {
+        return guestAge;
+    }
+
+    public void setGuestAge(Integer guestAge) {
+        this.guestAge = guestAge;
+    }
+
+    public String getGuestPhone() {
+        return guestPhone;
+    }
+
+    public void setGuestPhone(String guestPhone) {
+        this.guestPhone = guestPhone;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(OffsetDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }

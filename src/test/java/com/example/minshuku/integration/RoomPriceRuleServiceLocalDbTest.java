@@ -1,92 +1,214 @@
-package com.example.minshuku.integration; // 実DBを使う料金ルールサービステストの所属パッケージ。
+package com.example.minshuku.integration;
 
-import static org.assertj.core.api.Assertions.assertThat; // AssertJ の通常断言を使う。
-import static org.assertj.core.api.Assertions.assertThatThrownBy; // AssertJ の例外断言を使う。
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.example.minshuku.domain.RoomPriceRule; // 料金ルールエンティティを使う。
-import com.example.minshuku.mapper.RoomPriceRuleMapper; // 料金ルール Mapper を使う。
-import com.example.minshuku.service.RoomPriceRuleService; // テスト対象の料金ルールサービスを使う。
-import java.math.BigDecimal; // 金額比較に使う。
-import java.time.LocalDate; // 日付指定に使う。
-import java.util.List; // 一覧比較に使う。
-import org.junit.jupiter.api.BeforeEach; // テスト前準備に使う。
-import org.junit.jupiter.api.Test; // テスト定義に使う。
-import org.springframework.beans.factory.annotation.Autowired; // DI に使う。
-import org.springframework.boot.test.context.SpringBootTest; // Spring 全体を起動する。
-import org.springframework.transaction.annotation.Transactional; // 各テストをロールバックする。
+import com.example.minshuku.domain.RoomPriceRule;
+import com.example.minshuku.mapper.RoomPriceRuleMapper;
+import com.example.minshuku.service.RoomPriceRuleService;
+import com.example.minshuku.support.LoggedTest;
+import com.example.minshuku.support.TestSetData;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest // 実DB付きで Spring コンテキストを起動する。
-@Transactional // 各テストの変更をロールバックする。
-class RoomPriceRuleServiceLocalDbTest extends LocalDbTestSupport { // 実DBで料金ルールサービスを検証する。
-  @Autowired private RoomPriceRuleService roomPriceRuleService; // テスト対象の料金ルールサービスを注入する。
-  @Autowired private RoomPriceRuleMapper roomPriceRuleMapper; // 結果確認用の料金ルール Mapper を注入する。
+@SpringBootTest
+@Transactional
+@LoggedTest
+@DisplayName("料金ルールサービスDB連携")
+/**
+ * 料金ルールの登録、重複抑止、削除、一覧取得を確認する結合テスト。
+ */
+class RoomPriceRuleServiceLocalDbTest extends LocalDbTestSupport {
+    @Autowired
+    private RoomPriceRuleService roomPriceRuleService;
+    @Autowired
+    private RoomPriceRuleMapper roomPriceRuleMapper;
 
-  @BeforeEach // 各テストの前に実行する。
-  void setUp() { // 初期データを準備する。
-    resetTables(); // 既存データを消す。
-    seedRooms(); // 部屋データを投入する。
-  }
+    @BeforeEach
+    void setUp() {
+        resetTables();
+        seedRooms();
+    }
 
-  @Test // 正常系の料金ルール登録を検証する。
-  void createPersistsRuleNormally() { // 重複しないルールは登録できる。
-    RoomPriceRule rule = baseRule(ruleRoomId, "9月後半料金", LocalDate.of(2026, 9, 16), LocalDate.of(2026, 9, 30), BigDecimal.valueOf(17000)); // ルール雛形を作る。
-    roomPriceRuleService.create(rule); // 登録処理を実行する。
-    List<RoomPriceRule> rules = roomPriceRuleService.findAllWithRoom(); // 一覧を取り出す。
-    assertThat(rules).anySatisfy(saved -> { // 一覧の中身を確認する。
-      assertThat(saved.getRuleName()).isEqualTo("9月後半料金"); // ルール名を確認する。
-      assertThat(saved.getRoomNumber()).isEqualTo("106"); // 部屋番号を確認する。
-      assertThat(saved.getPricePerPerson()).isEqualByComparingTo("17000"); // 単価を確認する。
-    }); // 対象ルールが保存されたことを確認する。
-  }
+    /**
+     * テストケース名：test_01 create Persists Rule Normally
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_01 create Persists Rule Normally")
+    @Test
+    void createPersistsRuleNormally() {
+        RoomPriceRule rule = baseRule("late-september");
+        roomPriceRuleService.create(rule);
+        List<RoomPriceRule> rules = roomPriceRuleService.findAllWithRoom();
+        assertThat(rules).anySatisfy(saved -> {
+            assertThat(saved.getRuleName()).isEqualTo("9月後半料金");
+            assertThat(saved.getRoomNumber()).isEqualTo("106");
+            assertThat(saved.getPricePerPerson()).isEqualByComparingTo("17000");
+        });
+    }
 
-  @Test // 異常系の重複期間登録を検証する。
-  void createRejectsOverlappingRule() { // 同じ部屋の重複期間は拒否される。
-    insertPriceRule(ruleRoomId, "9月料金", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), BigDecimal.valueOf(16000), 1, true, "事前登録"); // 先に同期間ルールを入れる。
-    RoomPriceRule rule = baseRule(ruleRoomId, "重複料金", LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 20), BigDecimal.valueOf(18000)); // 重複ルールを作る。
-    assertThatThrownBy(() -> roomPriceRuleService.create(rule)) // 登録処理を実行して例外を確認する。
-      .isInstanceOf(IllegalArgumentException.class) // 業務例外であることを確認する。
-      .hasMessage("指定期間はすでに設定されています。"); // 重複エラーメッセージを確認する。
-  }
+    /**
+     * テストケース名：test_02 create Rejects Overlapping Rule
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_02 create Rejects Overlapping Rule")
+    @Test
+    void createRejectsOverlappingRule() {
+        var priceRule = TestSetData.priceRule("september");
+        insertPriceRule(ruleRoomId, priceRule.ruleName(), priceRule.startDate(), priceRule.endDate(),
+                priceRule.pricePerPerson(), priceRule.priority(), priceRule.active(), "事前登録");
+        RoomPriceRule rule = baseRule("late-september");
+        rule.setRuleName("重複料金");
+        rule.setStartDate(LocalDate.of(2026, 9, 10));
+        rule.setEndDate(LocalDate.of(2026, 9, 20));
+        assertThatThrownBy(() -> roomPriceRuleService.create(rule))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("指定期間はすでに設定されています。");
+    }
 
-  @Test // 正常系の単体削除を検証する。
-  void deleteRemovesRuleNormally() { // 1件削除できることを確認する。
-    int ruleId = insertPriceRule(ruleRoomId, "削除対象", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 5), BigDecimal.valueOf(15000), 1, true, "削除確認"); // 削除対象を作る。
-    roomPriceRuleService.delete(ruleId); // 削除処理を実行する。
-    assertThat(roomPriceRuleMapper.findAllWithRoom()).noneMatch(rule -> rule.getId() != null && rule.getId().intValue() == ruleId); // DBから消えたことを確認する。
-  }
+    /**
+     * テストケース名：test_03 delete Removes Rule Normally
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_03 delete Removes Rule Normally")
+    @Test
+    void deleteRemovesRuleNormally() {
+        int ruleId = insertPriceRule(ruleRoomId, "削除対象", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 5),
+                TestSetData.priceRule("september").pricePerPerson(), 1, true, "削除確認");
+        roomPriceRuleService.delete(ruleId);
+        assertThat(roomPriceRuleMapper.findAllWithRoom())
+                .noneMatch(rule -> rule.getId() != null && rule.getId().intValue() == ruleId);
+    }
 
-  @Test // 異常系の単体削除失敗を検証する。
-  void deleteRejectsMissingRule() { // 存在しないIDは拒否される。
-    assertThatThrownBy(() -> roomPriceRuleService.delete(9999)) // 存在しないIDで削除する。
-      .isInstanceOf(IllegalArgumentException.class) // 業務例外であることを確認する。
-      .hasMessage("料金ルールが見つかりません。"); // 不存在メッセージを確認する。
-  }
+    /**
+     * テストケース名：test_04 delete Rejects Missing Rule
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_04 delete Rejects Missing Rule")
+    @Test
+    void deleteRejectsMissingRule() {
+        assertThatThrownBy(() -> roomPriceRuleService.delete(9999))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("料金ルールが見つかりません。");
+    }
 
-  @Test // 正常系の一括削除を検証する。
-  void deleteByIdsRemovesRulesNormally() { // 複数件削除できることを確認する。
-    int firstId = insertPriceRule(ruleRoomId, "一括1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 5), BigDecimal.valueOf(15000), 1, true, "一括削除"); // 1件目を作る。
-    int secondId = insertPriceRule(ruleRoomId, "一括2", LocalDate.of(2026, 9, 6), LocalDate.of(2026, 9, 10), BigDecimal.valueOf(15500), 1, true, "一括削除"); // 2件目を作る。
-    roomPriceRuleService.deleteByIds(List.of(firstId, secondId)); // 一括削除を実行する。
-    assertThat(roomPriceRuleMapper.findAllWithRoom()).noneMatch(rule -> (rule.getId() != null && rule.getId().intValue() == firstId) || (rule.getId() != null && rule.getId().intValue() == secondId)); // 両方消えたことを確認する。
-  }
+    /**
+     * テストケース名：test_05 delete By Ids Removes Rules Normally
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：処理結果が期待値と一致し、テストが成功すること。
+     */
+    @DisplayName("test_05 delete By Ids Removes Rules Normally")
+    @Test
+    void deleteByIdsRemovesRulesNormally() {
+        int firstId = insertPriceRule(ruleRoomId, "一括1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 5),
+                TestSetData.priceRule("september").pricePerPerson(), 1, true, "一括削除");
+        int secondId = insertPriceRule(ruleRoomId, "一括2", LocalDate.of(2026, 9, 6), LocalDate.of(2026, 9, 10),
+                TestSetData.priceRule("late-september").pricePerPerson(), 1, true, "一括削除");
+        roomPriceRuleService.deleteByIds(List.of(firstId, secondId));
+        assertThat(roomPriceRuleMapper.findAllWithRoom())
+                .noneMatch(rule -> (rule.getId() != null && rule.getId().intValue() == firstId)
+                        || (rule.getId() != null && rule.getId().intValue() == secondId));
+    }
 
-  @Test // 異常系の一括削除空選択を検証する。
-  void deleteByIdsRejectsEmptySelection() { // 何も選んでいない場合は拒否される。
-    assertThatThrownBy(() -> roomPriceRuleService.deleteByIds(List.of())) // 空一覧で削除する。
-      .isInstanceOf(IllegalArgumentException.class) // 業務例外であることを確認する。
-      .hasMessage("料金ルールを1件以上選択してください。"); // 空選択メッセージを確認する。
-  }
+    /**
+     * テストケース名：test_06 delete By Ids Rejects Empty Selection
+     * テスト条件：削除または取消対象データを準備する。
+     * テスト要望：対象データが削除・取消済みとして正しく処理されること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_06 delete By Ids Rejects Empty Selection")
+    @Test
+    void deleteByIdsRejectsEmptySelection() {
+        assertThatThrownBy(() -> roomPriceRuleService.deleteByIds(List.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("料金ルールを1件以上選択してください。");
+    }
 
-  private RoomPriceRule baseRule(Integer roomId, String ruleName, LocalDate startDate, LocalDate endDate, BigDecimal pricePerPerson) { // 料金ルール雛形を作る。
-    RoomPriceRule rule = new RoomPriceRule(); // 料金ルールオブジェクトを作る。
-    rule.setRoomId(roomId); // 部屋IDを設定する。
-    rule.setRuleName(ruleName); // ルール名を設定する。
-    rule.setStartDate(startDate); // 開始日を設定する。
-    rule.setEndDate(endDate); // 終了日を設定する。
-    rule.setPricePerPerson(pricePerPerson); // 単価を設定する。
-    rule.setPriority(1); // 優先度を設定する。
-    rule.setActive(true); // 有効状態を設定する。
-    rule.setNote("DBテスト用"); // メモを設定する。
-    return rule; // 雛形を返す。
-  }
+    /**
+     * テストケース名：test_07 query Price Rules Compares Expected And Actual Results
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待値と実際値が一致すること。
+     */
+    @DisplayName("test_07 query Price Rules Compares Expected And Actual Results")
+    @Test
+    void queryPriceRulesComparesExpectedAndActualResults() {
+        var september = TestSetData.priceRule("september");
+        var lateSeptember = TestSetData.priceRule("late-september");
+        insertPriceRule(ruleRoomId, september.ruleName(), september.startDate(), september.endDate(),
+                september.pricePerPerson(), september.priority(), september.active(), september.note());
+        insertPriceRule(spareRoomId, lateSeptember.ruleName(), lateSeptember.startDate(), lateSeptember.endDate(),
+                lateSeptember.pricePerPerson(), lateSeptember.priority(), lateSeptember.active(), lateSeptember.note());
+
+        List<String> actualRules = roomPriceRuleService.findAllWithRoom().stream()
+                .map(rule -> rule.getRoomNumber() + ":" + rule.getRuleName() + ":"
+                        + amountText(rule.getPricePerPerson()))
+                .toList();
+        List<String> expectedRules = List.of("105:9月後半料金:17000", "106:9月料金:12000");
+        printComparison("正常系検索：料金ルール一覧", expectedRules, actualRules);
+        assertThat(actualRules).containsExactlyElementsOf(expectedRules);
+    }
+
+    /**
+     * テストケース名：test_08 query Price Rules Returns Empty When No Data Exists
+     * テスト条件：検索条件、初期データ、期待値を準備する。
+     * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_08 query Price Rules Returns Empty When No Data Exists")
+    @Test
+    void queryPriceRulesReturnsEmptyWhenNoDataExists() {
+        List<String> actualRules = roomPriceRuleService.findAllWithRoom().stream()
+                .map(RoomPriceRule::getRuleName)
+                .toList();
+        printComparison("範囲外データ：料金ルールなし", List.of(), actualRules);
+        assertThat(actualRules).isEmpty();
+    }
+
+    /**
+     * テストケース名：test_09 create Price Rule Rejects Negative Price As Abnormal Case
+     * テスト条件：登録対象データ、関連 mock、または DB 初期データを準備する。
+     * テスト要望：正常入力は保存・遷移・レスポンスが成功し、不正入力は業務エラーになること。
+     * テスト結果：期待したエラー、拒否結果、または空結果になること。
+     */
+    @DisplayName("test_09 create Price Rule Rejects Negative Price As Abnormal Case")
+    @Test
+    void createPriceRuleRejectsNegativePriceAsAbnormalCase() {
+        RoomPriceRule rule = baseRule("september");
+        rule.setPricePerPerson(BigDecimal.valueOf(-1));
+        String actualMessage = null;
+        try {
+            roomPriceRuleService.create(rule);
+        } catch (IllegalArgumentException ex) {
+            actualMessage = ex.getMessage();
+        }
+        printComparison("異常系：料金が負数", "料金は0円以上にしてください。", actualMessage);
+        assertThat(actualMessage).isEqualTo("料金は0円以上にしてください。");
+    }
+
+    private RoomPriceRule baseRule(String key) {
+        RoomPriceRule rule = TestSetData.priceRule(key).toDomain();
+        rule.setRoomId(ruleRoomId);
+        return rule;
+    }
+
+    private String amountText(BigDecimal amount) {
+        return amount.stripTrailingZeros().toPlainString();
+    }
 }

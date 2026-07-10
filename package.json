@@ -1,0 +1,41 @@
+{
+  "name": "hotel-management",
+  "version": "1.0.0",
+  "description": "基于 Java 17、Spring Boot、React、MyBatis、PostgreSQL 的民宿管理系统。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "esbuild src/main/frontend/App.jsx --bundle --minify --format=iife --global-name=MinshukuApp --outfile=src/main/resources/static/js/app.js",
+    "lint": "eslint .",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "check": "npm run format:check && npm run lint && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1996HE/hotel2026.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/1996HE/hotel2026/issues"
+  },
+  "homepage": "https://github.com/1996HE/hotel2026#readme",
+  "dependencies": {
+    "esbuild": "^0.28.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "prettier": "^3.6.2"
+  }
+}

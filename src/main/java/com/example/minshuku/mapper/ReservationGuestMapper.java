@@ -1,9 +1,17 @@
-package com.example.minshuku.mapper; // 宣言同行者 Mapper インターフェース所属パッケージ。
+package com.example.minshuku.mapper;
 
-import com.example.minshuku.domain.ReservationGuest; // 読み込み同行者エンティティ型。
-import org.apache.ibatis.annotations.Mapper; // 読み込み MyBatis Mapper 標记アノテーション。
+import com.example.minshuku.domain.ReservationGuest;
+import org.apache.ibatis.annotations.Mapper;
 
-@Mapper // 標记该インターフェース由 MyBatis 生成代理实现。
-public interface ReservationGuestMapper { // 定義 reservation_guests テーブルのデータ访问インターフェース。
-  int insert(ReservationGuest guest); // 新規登録予約同行者レコード。
+/**
+ * 予約同行者テーブルへの永続化を担当する MyBatis Mapper。
+ * <p>
+ * 予約本体と独立して保存し、同行者の人数変動や明細表示に対応する。
+ */
+@Mapper
+public interface ReservationGuestMapper {
+    /**
+     * 予約本体登録後、人数分の同行者明細を保存する。
+     */
+    int insert(ReservationGuest guest);
 }

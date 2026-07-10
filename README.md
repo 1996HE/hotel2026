@@ -1,6 +1,6 @@
 # 白馬樹海 予約管理システム
 
-基于 Java 17、Spring Boot、Thymeleaf、MyBatis、PostgreSQL 的白馬樹海民宿预约管理系统。
+基于 Java 17、Spring Boot、React、MyBatis、PostgreSQL 的民宿预约管理系统。
 
 ## 功能
 
@@ -15,6 +15,7 @@
 
 ```bash
 docker compose up -d db
+export DB_PASSWORD=minshuku
 mvn spring-boot:run
 ```
 
@@ -23,6 +24,7 @@ mvn spring-boot:run
 ```bash
 chmod +x scripts/db-start-local.sh scripts/db-stop-local.sh
 ./scripts/db-start-local.sh
+export DB_PASSWORD=minshuku
 mvn spring-boot:run
 ```
 
@@ -39,9 +41,15 @@ mvn spring-boot:run
 
 - URL：`jdbc:postgresql://localhost:55432/minshuku`
 - 用户：`minshuku`
-- 密码：`minshuku`
+- 密码：通过 `DB_PASSWORD` 环境变量注入
 
 数据库结构和初始数据位于：
 
 - `src/main/resources/db/schema.sql`
 - `src/main/resources/db/data.sql`
+
+`schema.sql` 包含 PostgreSQL 专用的预约重複防止排他制約：
+
+- 同一房间的 `booked` 预约不能有住宿日期重叠。
+- 日期区间按 `[check_in_date, check_out_date)` 处理，因此同一天退房和入住可以衔接。
+- 该制约依赖 `btree_gist` extension。正式环境需要用具备建 extension 权限的用户执行 schema/migration。
