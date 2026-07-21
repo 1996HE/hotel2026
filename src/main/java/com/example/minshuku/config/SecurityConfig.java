@@ -51,13 +51,13 @@ public class SecurityConfig {
             "/api/**",
             "/error",
             "/js/**",
-            "/styles/**"
+            "/styles/**", "/actuator/health/**"
     };
 
     private static final String CONTENT_SECURITY_POLICY = String.join("; ",
             // 外部スクリプトや外部送信を抑止し、内部画面の自己完結性を高める。
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
+            "script-src 'self'",
             "style-src 'self'",
             "img-src 'self' data:",
             "font-src 'self'",

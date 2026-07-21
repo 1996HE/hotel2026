@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
@@ -41,27 +41,107 @@ const padPage = (items) => Array.from({ length: PAGE_SIZE }, (_, index) => items
 
 function Nav({ route }) {
   const items = [
-    ["/dashboard", "予約一覧"],
-    ["/rooms", "部屋"],
-    ["/reservations", "予約"],
-    ["/prices", "料金"],
+    ["/dashboard", "ホーム", "dashboard"],
+    ["/rooms", "客室管理", "rooms"],
+    ["/reservations", "予約管理", "calendar"],
+    ["/prices", "料金設定", "price"],
   ];
   return (
-    <header className="topbar">
-      <a className="brand" href={withContext("/dashboard")}>
-        民宿管理
+    <aside className="topbar" aria-label="管理画面サイドバー">
+      <a className="brand" href={withContext("/dashboard")} aria-label="白馬樹海 ホーム">
+        <span className="brand-mark" aria-hidden="true">
+          樹
+        </span>
+        <span className="brand-copy">
+          <strong>白馬樹海</strong>
+        </span>
       </a>
-      <nav className="nav">
-        {items.map(([href, label]) => (
-          <a
-            key={href}
-            href={withContext(href)}
-            className={route === href || (route === "/" && href === "/dashboard") ? "active" : ""}
-          >
-            {label}
-          </a>
-        ))}
+      <nav className="nav" aria-label="主要メニュー">
+        <span className="nav-caption">MAIN MENU</span>
+        {items.map(([href, label, icon]) => {
+          const active = route === href || (route === "/" && href === "/dashboard");
+          return (
+            <a
+              key={href}
+              href={withContext(href)}
+              className={active ? "active" : ""}
+              aria-current={active ? "page" : undefined}
+            >
+              <NavIcon name={icon} />
+              <span>{label}</span>
+            </a>
+          );
+        })}
       </nav>
+      <div className="sidebar-footer">
+        <span className="system-status">
+          <i aria-hidden="true" />
+          営業中
+        </span>
+        <small>Hakuba Jukai Ryokan</small>
+      </div>
+    </aside>
+  );
+}
+
+function NavIcon({ name }) {
+  const paths = {
+    dashboard: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </>
+    ),
+    rooms: (
+      <>
+        <path d="M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16" />
+        <path d="M2 21h20" />
+        <path d="M8 7h8v14H8z" />
+        <path d="M13 14h.01" />
+      </>
+    ),
+    calendar: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M16 3v4M8 3v4M3 10h18" />
+        <path d="m8 15 2 2 5-5" />
+      </>
+    ),
+    price: (
+      <>
+        <path d="M20.6 13.6 11 23.2 1.8 14 11.4 4.4H20v8.6Z" transform="scale(.88) translate(1 -1)" />
+        <circle cx="16" cy="7" r="1.2" />
+        <path d="M8 11h7M8 14h7M11.5 11v7" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      className="nav-icon"
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {paths[name]}
+    </svg>
+  );
+}
+
+function PageHeader({ eyebrow, title, description, action }) {
+  return (
+    <header className="page-header">
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p className="page-description">{description}</p>
+      </div>
+      {action ? <div className="page-header-action">{action}</div> : null}
     </header>
   );
 }
@@ -86,7 +166,11 @@ function Notice({ message, error, onClose }) {
 
   if (!message && !error) return null;
   return (
-    <div className={`notice notice-toast ${error ? "error" : "success"}`} role="status" aria-live="polite">
+    <div
+      className={`notice notice-toast ${error ? "error" : "success"}`}
+      role={error ? "alert" : "status"}
+      aria-live={error ? "assertive" : "polite"}
+    >
       {error || message}
     </div>
   );
@@ -145,28 +229,38 @@ function Dashboard() {
   }, []);
   if (!data)
     return (
-      <main className="page">
+      <main className="page" id="main-content">
         <Notice {...notice} onClose={() => setNotice({})} />
-        <section className="panel">読み込み中...</section>
+        <section className="panel" role="status" aria-live="polite">
+          読み込み中...
+        </section>
       </main>
     );
   return (
-    <main className="page">
-      <section className="hero">
-        <p className="eyebrow">民宿管理システム</p>
-        <h1>予約一覧</h1>
-        <p>宿泊予約、支払い状況、部屋割りを確認します。</p>
-      </section>
+    <main className="page" id="main-content">
+      <PageHeader
+        eyebrow="本日の帳場"
+        title="宿泊状況"
+        description="予約、空室、支払い状況をひと目で確認できます。"
+        action={
+          <a className="button header-button" href={withContext("/reservations")}>
+            <span aria-hidden="true">＋</span> 新規予約
+          </a>
+        }
+      />
       <section className="metrics">
-        <Metric label="部屋数" value={data.roomCount} />
-        <Metric label="空室" value={data.vacantCount} />
-        <Metric label="有効予約" value={data.bookedCount} />
+        <Metric label="全客室" value={data.roomCount} icon="rooms" tone="indigo" />
+        <Metric label="販売可能" value={data.vacantCount} icon="dashboard" tone="green" />
+        <Metric label="有効予約" value={data.bookedCount} icon="calendar" tone="gold" />
       </section>
-      <section className="panel">
+      <section className="panel dashboard-panel">
         <div className="section-title pager-title">
-          <h2>予約一覧</h2>
-          <a className="button" href={withContext("/reservations")}>
-            予約登録
+          <div>
+            <span className="section-kicker">RESERVATIONS</span>
+            <h2>直近のご予約</h2>
+          </div>
+          <a className="text-link" href={withContext("/reservations")}>
+            すべて見る <span aria-hidden="true">→</span>
           </a>
         </div>
         <ReservationTable reservations={data.recentReservations.items} compact />
@@ -175,11 +269,20 @@ function Dashboard() {
   );
 }
 
-function Metric({ label, value }) {
+function Metric({ label, value, icon, tone }) {
   return (
-    <article className="metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <article className={`metric metric-${tone || "green"}`}>
+      <span className="metric-icon">
+        <NavIcon name={icon} />
+      </span>
+      <div className="metric-copy">
+        <span>{label}</span>
+        <strong>
+          {value}
+          <small>室</small>
+        </strong>
+      </div>
+      <span className="metric-detail">現在</span>
     </article>
   );
 }
@@ -265,9 +368,11 @@ function Rooms() {
   const roomTotalPages = totalPages(data.rooms.length);
   const deletedRoomTotalPages = totalPages(data.deletedRooms.length);
   return (
-    <main className="page grid-page">
-      <section className="panel">
-        <h1>部屋登録</h1>
+    <main className="page grid-page" id="main-content">
+      <PageHeader eyebrow="客室台帳" title="客室管理" description="客室の基本情報、販売状況、清掃状態を管理します。" />
+      <section className="panel form-panel">
+        <span className="section-kicker">NEW ROOM</span>
+        <h2>客室を登録</h2>
         <Notice {...notice} onClose={() => setNotice({})} />
         <form className="form" onSubmit={submit}>
           <label>
@@ -326,13 +431,22 @@ function Rooms() {
             メモ
             <textarea value={form.note || ""} onChange={(e) => setForm({ ...form, note: e.target.value })} rows="3" />
           </label>
-          <button type="submit">登録</button>
+          <button className="form-submit" type="submit">
+            客室を登録
+          </button>
         </form>
       </section>
-      <section className="panel wide">
-        <h1>部屋一覧</h1>
+      <section className="panel wide data-panel">
+        <div className="section-title">
+          <div>
+            <span className="section-kicker">ROOMS</span>
+            <h2>客室一覧</h2>
+          </div>
+          <span className="record-count">{data.rooms.length} 室</span>
+        </div>
         <div className="table-scroll">
           <table className="table room-table">
+            <caption className="visually-hidden">有効な客室一覧</caption>
             <colgroup>
               <col className="room-col-no" />
               <col className="room-col-name" />
@@ -379,9 +493,10 @@ function Rooms() {
           </table>
         </div>
         <Pager page={roomPage} totalPages={roomTotalPages} onPageChange={setRoomPage} />
-        <h1 className="subsection-title">削除済み部屋一覧</h1>
+        <h2 className="subsection-title">削除済み客室</h2>
         <div className="table-scroll">
           <table className="table deleted-room-table">
+            <caption className="visually-hidden">削除済み客室一覧</caption>
             <colgroup>
               <col className="room-col-no" />
               <col className="room-col-name" />
@@ -469,12 +584,20 @@ function RoomRow({ room, onUpdate, onDelete }) {
       <td>
         <div className="room-status-form">
           <div className="room-status-fields">
-            <select value={occupancyStatus} onChange={(e) => setOccupancyStatus(e.target.value)}>
+            <select
+              aria-label={`${room.roomNumber}号室の宿泊状態`}
+              value={occupancyStatus}
+              onChange={(e) => setOccupancyStatus(e.target.value)}
+            >
               <option value="vacant">空室</option>
               <option value="reserved">予約済</option>
               <option value="occupied">滞在中</option>
             </select>
-            <select value={cleaningStatus} onChange={(e) => setCleaningStatus(e.target.value)}>
+            <select
+              aria-label={`${room.roomNumber}号室の清掃状態`}
+              value={cleaningStatus}
+              onChange={(e) => setCleaningStatus(e.target.value)}
+            >
               <option value="cleaned">清掃済</option>
               <option value="needs_cleaning">清掃待ち</option>
             </select>
@@ -547,9 +670,11 @@ function Prices() {
   const paddedRules = data.rules.length ? padPage(visibleRules) : [];
   const ruleTotalPages = totalPages(data.rules.length);
   return (
-    <main className="page grid-page">
-      <section className="panel">
-        <h1>料金ルール登録</h1>
+    <main className="page grid-page" id="main-content">
+      <PageHeader eyebrow="季節の料金帳" title="料金設定" description="客室ごとの期間料金と適用優先度を管理します。" />
+      <section className="panel form-panel">
+        <span className="section-kicker">NEW RATE</span>
+        <h2>料金ルールを登録</h2>
         <Notice {...notice} onClose={() => setNotice({})} />
         <form className="form" onSubmit={submit}>
           <label>
@@ -606,18 +731,27 @@ function Prices() {
             メモ
             <textarea value={form.note || ""} onChange={(e) => setForm({ ...form, note: e.target.value })} rows="3" />
           </label>
-          <button type="submit">登録</button>
+          <button className="form-submit" type="submit">
+            料金を登録
+          </button>
         </form>
       </section>
-      <section className="panel wide">
-        <h1>料金ルール一覧</h1>
-        <div className="price-bulk-actions">
-          <button className="danger" onClick={removeSelected}>
-            選択削除
-          </button>
+      <section className="panel wide data-panel">
+        <div className="section-title">
+          <div>
+            <span className="section-kicker">RATE PLANS</span>
+            <h2>料金ルール一覧</h2>
+          </div>
+          <div className="price-bulk-actions">
+            <span className="record-count">{data.rules.length} 件</span>
+            <button className="danger button-quiet" onClick={removeSelected} disabled={ids.length === 0}>
+              選択削除 {ids.length ? `(${ids.length})` : ""}
+            </button>
+          </div>
         </div>
         <div className="table-scroll">
           <table className="table price-table">
+            <caption className="visually-hidden">料金ルール一覧</caption>
             <thead>
               <tr>
                 <th>選択</th>
@@ -640,6 +774,7 @@ function Prices() {
                       <td>
                         <input
                           type="checkbox"
+                          aria-label={`${rule.roomNumber} ${rule.ruleName}を選択`}
                           checked={ids.includes(rule.id)}
                           onChange={(e) =>
                             setIds(e.target.checked ? [...ids, rule.id] : ids.filter((id) => id !== rule.id))
@@ -688,17 +823,35 @@ function Prices() {
 
 function Reservations() {
   const [data, setData] = useState({
-    reservations: { items: [] },
-    cancelledReservations: { items: [] },
-    checkedOutReservations: { items: [] },
+    reservations: { items: [], page: 1, totalPages: 1, totalCount: 0 },
+    cancelledReservations: { items: [], page: 1, totalPages: 1, totalCount: 0 },
+    checkedOutReservations: { items: [], page: 1, totalPages: 1, totalCount: 0 },
     rooms: [],
   });
+  const [reservationPage, setReservationPage] = useState(1);
+  const [cancelledPage, setCancelledPage] = useState(1);
+  const [checkedOutPage, setCheckedOutPage] = useState(1);
   const [notice, setNotice] = useState({});
   const [form, setForm] = useState({ guestCount: 1, reservationForm: "公式", paymentStatus: "unpaid" });
-  const load = () => loadData(() => api("/api/reservations"), setData, setNotice);
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({
+      page: String(reservationPage),
+      cancelledPage: String(cancelledPage),
+      checkedOutPage: String(checkedOutPage),
+    });
+    try {
+      const response = await api(`/api/reservations?${params.toString()}`);
+      setData(response);
+      setReservationPage(response.reservations.page);
+      setCancelledPage(response.cancelledReservations.page);
+      setCheckedOutPage(response.checkedOutReservations.page);
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  }, [reservationPage, cancelledPage, checkedOutPage]);
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
   const companions = useMemo(() => Math.max(0, Number(form.guestCount || 1) - 1), [form.guestCount]);
   const submit = async (event) => {
     event.preventDefault();
@@ -788,9 +941,15 @@ function Reservations() {
     }, setNotice);
   };
   return (
-    <main className="page grid-page">
-      <section className="panel">
-        <h1>予約登録</h1>
+    <main className="page grid-page reservations-page" id="main-content">
+      <PageHeader
+        eyebrow="宿泊予約帳"
+        title="予約管理"
+        description="新しい予約の登録と、宿泊・支払い・清掃状況を管理します。"
+      />
+      <section className="panel form-panel reservation-form-panel">
+        <span className="section-kicker">NEW RESERVATION</span>
+        <h2>新規予約</h2>
         <Notice {...notice} onClose={() => setNotice({})} />
         <form className="form" onSubmit={submit}>
           <label>
@@ -871,6 +1030,8 @@ function Reservations() {
             <label>
               電話
               <input
+                type="tel"
+                autoComplete="tel"
                 disabled={form.noPhoneInfo}
                 value={form.guestPhone || ""}
                 onChange={(e) => setForm({ ...form, guestPhone: e.target.value })}
@@ -888,6 +1049,8 @@ function Reservations() {
             <label>
               メール
               <input
+                type="email"
+                autoComplete="email"
                 disabled={form.noEmailInfo}
                 value={form.guestEmail || ""}
                 onChange={(e) => setForm({ ...form, guestEmail: e.target.value })}
@@ -992,21 +1155,50 @@ function Reservations() {
           </button>
         </form>
       </section>
-      <section className="panel wide">
-        <h1>予約一覧</h1>
-        <ReservationTable reservations={data.reservations.items} onPayment={payment} onCancel={cancel} />
-        <h1 className="subsection-title">取消予約一覧</h1>
+      <section className="panel wide data-panel reservation-data-panel">
+        <div className="section-title">
+          <div>
+            <span className="section-kicker">ACTIVE STAYS</span>
+            <h2>予約一覧</h2>
+          </div>
+          <span className="record-count">
+            全{data.reservations.totalCount}件・{data.reservations.items.length}件表示
+          </span>
+        </div>
+        <ReservationTable
+          reservations={data.reservations.items}
+          onPayment={payment}
+          onCancel={cancel}
+          caption="宿泊予約一覧"
+        />
+        <Pager
+          page={data.reservations.page}
+          totalPages={data.reservations.totalPages}
+          onPageChange={setReservationPage}
+        />
+        <h2 className="subsection-title">取消済み予約</h2>
         <ReservationTable
           reservations={data.cancelledReservations.items}
           readonly
           onDelete={deleteCancelled}
           showDelete
+          caption="取消済み予約一覧"
         />
-        <h1 className="subsection-title">チェックアウト一覧</h1>
+        <Pager
+          page={data.cancelledReservations.page}
+          totalPages={data.cancelledReservations.totalPages}
+          onPageChange={setCancelledPage}
+        />
+        <h2 className="subsection-title">チェックアウト済み</h2>
         <CheckoutTable
           reservations={data.checkedOutReservations.items}
           onCleaning={cleaning}
           onDelete={deleteCheckedOut}
+        />
+        <Pager
+          page={data.checkedOutReservations.page}
+          totalPages={data.checkedOutReservations.totalPages}
+          onPageChange={setCheckedOutPage}
         />
       </section>
     </main>
@@ -1021,22 +1213,24 @@ function ReservationTable({
   readonly = false,
   compact = false,
   showDelete = false,
+  caption,
 }) {
   // Keep a shared column definition so active, cancelled, and dashboard reservation tables stay aligned.
   return (
     <div className="table-scroll">
       <table className={`table reservation-table ${compact ? "dashboard-table" : "reservation-table-full"}`}>
-        <ReservationColGroup includeActions={!readonly && !compact} includeDelete={showDelete} />
+        <caption className="visually-hidden">{caption || (compact ? "直近の予約一覧" : "宿泊予約一覧")}</caption>
+        <ReservationColGroup compact={compact} includeActions={!readonly && !compact} includeDelete={showDelete} />
         <thead>
           <tr>
             <th>予約番号</th>
             <th>部屋</th>
             <th>予約者</th>
             <th>人数</th>
-            <th>電話</th>
-            <th>メール</th>
-            <th>予約形式</th>
-            <th>同行者</th>
+            {!compact && <th>電話</th>}
+            {!compact && <th>メール</th>}
+            {!compact && <th>予約形式</th>}
+            {!compact && <th>同行者</th>}
             <th>日程</th>
             <th>金額</th>
             <th>予約状態</th>
@@ -1061,7 +1255,7 @@ function ReservationTable({
             ))
           ) : (
             <tr>
-              <td colSpan={compact ? 12 : 13} className="empty">
+              <td colSpan={compact ? 8 : 13} className="empty">
                 予約データがありません。
               </td>
             </tr>
@@ -1072,17 +1266,17 @@ function ReservationTable({
   );
 }
 
-function ReservationColGroup({ includeActions, includeDelete }) {
+function ReservationColGroup({ compact, includeActions, includeDelete }) {
   return (
     <colgroup>
       <col className="col-no" />
       <col className="col-room" />
       <col className="col-guest" />
       <col className="col-count" />
-      <col className="col-phone" />
-      <col className="col-email" />
-      <col className="col-form" />
-      <col className="col-companion" />
+      {!compact && <col className="col-phone" />}
+      {!compact && <col className="col-email" />}
+      {!compact && <col className="col-form" />}
+      {!compact && <col className="col-companion" />}
       <col className="col-date" />
       <col className="col-amount" />
       <col className="col-reservation-status" />
@@ -1113,12 +1307,14 @@ function ReservationRow({ item, onPayment, onCancel, onDelete, readonly, compact
         />
       </td>
       <td>{item.guestCount}名</td>
-      <td>{text(item.guestPhone, "電話未入力")}</td>
-      <td>{text(item.guestEmail, "メール未入力")}</td>
-      <td>{text(item.reservationForm, "公式")}</td>
-      <td className="companion-summary">
-        <CompanionSummary value={item.companionSummary} />
-      </td>
+      {!compact && <td>{text(item.guestPhone, "電話未入力")}</td>}
+      {!compact && <td>{text(item.guestEmail, "メール未入力")}</td>}
+      {!compact && <td>{text(item.reservationForm, "公式")}</td>}
+      {!compact && (
+        <td className="companion-summary">
+          <CompanionSummary value={item.companionSummary} />
+        </td>
+      )}
       <td>
         {item.checkInDate} - {item.checkOutDate}
       </td>
@@ -1143,7 +1339,11 @@ function ReservationRow({ item, onPayment, onCancel, onDelete, readonly, compact
         <td className="actions">
           <div className="reservation-actions">
             <div className="inline-form">
-              <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+              <select
+                aria-label={`${item.reservationNo}の支払い状態`}
+                value={paymentStatus}
+                onChange={(e) => setPaymentStatus(e.target.value)}
+              >
                 <option value="unpaid">未払い</option>
                 <option value="paid">支払済</option>
               </select>
@@ -1227,6 +1427,7 @@ function CheckoutTable({ reservations = [], onCleaning, onDelete }) {
   return (
     <div className="table-scroll">
       <table className="table checkout-table">
+        <caption className="visually-hidden">チェックアウト済み予約一覧</caption>
         <colgroup>
           <col className="col-no" />
           <col className="col-room" />
@@ -1303,7 +1504,11 @@ function CheckoutRow({ item, onCleaning, onDelete }) {
       </td>
       <td>
         <div className="inline-form">
-          <select value={cleaningStatus} onChange={(e) => setCleaningStatus(e.target.value)}>
+          <select
+            aria-label={`${item.reservationNo}の清掃状態`}
+            value={cleaningStatus}
+            onChange={(e) => setCleaningStatus(e.target.value)}
+          >
             <option value="needs_cleaning">清掃待ち</option>
             <option value="cleaned">清掃済</option>
           </select>
@@ -1324,18 +1529,23 @@ function CheckoutRow({ item, onCleaning, onDelete }) {
 function App() {
   const route = currentRoute();
   return (
-    <>
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        本文へ移動
+      </a>
       <Nav route={route} />
-      {route === "/rooms" ? (
-        <Rooms />
-      ) : route === "/reservations" ? (
-        <Reservations />
-      ) : route === "/prices" ? (
-        <Prices />
-      ) : (
-        <Dashboard />
-      )}
-    </>
+      <div className="app-content">
+        {route === "/rooms" ? (
+          <Rooms />
+        ) : route === "/reservations" ? (
+          <Reservations />
+        ) : route === "/prices" ? (
+          <Prices />
+        ) : (
+          <Dashboard />
+        )}
+      </div>
+    </div>
   );
 }
 

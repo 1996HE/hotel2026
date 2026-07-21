@@ -2,6 +2,7 @@ package com.example.minshuku.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -68,6 +69,8 @@ class ApiControllerTest {
                 .andExpect(jsonPath("$.vacantCount").value(1))
                 .andExpect(jsonPath("$.bookedCount").value(1))
                 .andExpect(jsonPath("$.recentReservations.items[0].guestName").value("山田太郎"));
+
+        verify(reservationService, never()).syncDueCheckouts();
     }
 
     /**
@@ -232,26 +235,79 @@ class ApiControllerTest {
     @DisplayName("test_09 reservations Api Returns Lists And Today")
     @Test
     void reservationsApiReturnsListsAndToday() throws Exception {
-        when(reservationService.findRecentPage(1, 5)).thenReturn(List.of(sampleReservation()));
-        when(reservationService.findCancelledPage(1, 5)).thenReturn(List.of());
-        when(reservationService.findCheckedOutPage(1, 5)).thenReturn(List.of());
+        when(reservationService.countRecent()).thenReturn(28);
+        when(reservationService.countCancelled()).thenReturn(8);
+        when(reservationService.countCheckedOut()).thenReturn(11);
+        when(reservationService.findRecentPage(2, 5)).thenReturn(List.of(sampleReservation()));
+        when(reservationService.findCancelledPage(2, 5)).thenReturn(List.of(sampleReservation()));
+        when(reservationService.findCheckedOutPage(3, 5)).thenReturn(List.of(sampleReservation()));
         when(roomService.findBookable()).thenReturn(List.of(sampleRoom()));
         when(reservationService.currentDate()).thenReturn(LocalDate.of(2026, 7, 6));
 
-        mockMvc.perform(get("/api/reservations"))
+        mockMvc.perform(get("/api/reservations")
+                        .param("page", "2")
+                        .param("cancelledPage", "2")
+                        .param("checkedOutPage", "3"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reservations.items[0].reservationStatusLabel").value("予約済"))
+                .andExpect(jsonPath("$.reservations.page").value(2))
+                .andExpect(jsonPath("$.reservations.totalPages").value(6))
+                .andExpect(jsonPath("$.reservations.totalCount").value(28))
+                .andExpect(jsonPath("$.cancelledReservations.page").value(2))
+                .andExpect(jsonPath("$.cancelledReservations.totalCount").value(8))
+                .andExpect(jsonPath("$.checkedOutReservations.page").value(3))
+                .andExpect(jsonPath("$.checkedOutReservations.totalCount").value(11))
                 .andExpect(jsonPath("$.rooms[0].roomNumber").value("101"))
                 .andExpect(jsonPath("$.today").value("2026-07-06"));
+
+        verify(reservationService).findRecentPage(2, 5);
+        verify(reservationService).findCancelledPage(2, 5);
+        verify(reservationService).findCheckedOutPage(3, 5);
+        verify(reservationService, never()).syncDueCheckouts();
     }
 
     /**
-     * テストケース名：test_10 post Api Without Csrf Token Is Rejected
+     * テストケース名：test_10 reservations Api Clamps Page Numbers
+     * テスト条件：0件、2ページ分、0件の各一覧に範囲外ページを指定する。
+     * テスト要望：各ページ番号をそれぞれの最終ページへ正規化すること。
+     * テスト結果：予約1、取消2、チェックアウト1ページとして検索・返却されること。
+     */
+    @DisplayName("test_10 reservations Api Clamps Page Numbers")
+    @Test
+    void reservationsApiClampsPageNumbers() throws Exception {
+        when(reservationService.countRecent()).thenReturn(0);
+        when(reservationService.countCancelled()).thenReturn(6);
+        when(reservationService.countCheckedOut()).thenReturn(0);
+        when(reservationService.findRecentPage(1, 5)).thenReturn(List.of());
+        when(reservationService.findCancelledPage(2, 5)).thenReturn(List.of());
+        when(reservationService.findCheckedOutPage(1, 5)).thenReturn(List.of());
+        when(roomService.findBookable()).thenReturn(List.of());
+        when(reservationService.currentDate()).thenReturn(LocalDate.of(2026, 7, 13));
+
+        mockMvc.perform(get("/api/reservations")
+                        .param("page", "-5")
+                        .param("cancelledPage", "99")
+                        .param("checkedOutPage", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reservations.page").value(1))
+                .andExpect(jsonPath("$.reservations.totalPages").value(1))
+                .andExpect(jsonPath("$.reservations.totalCount").value(0))
+                .andExpect(jsonPath("$.cancelledReservations.page").value(2))
+                .andExpect(jsonPath("$.cancelledReservations.totalPages").value(2))
+                .andExpect(jsonPath("$.checkedOutReservations.page").value(1));
+
+        verify(reservationService).findRecentPage(1, 5);
+        verify(reservationService).findCancelledPage(2, 5);
+        verify(reservationService).findCheckedOutPage(1, 5);
+    }
+
+    /**
+     * テストケース名：test_11 post Api Without Csrf Token Is Rejected
      * テスト条件：CSRF token を付与しない POST リクエストを準備する。
      * テスト要望：CSRF token がない更新系リクエストを拒否すること。
      * テスト結果：期待したエラー、拒否結果、または空結果になること。
      */
-    @DisplayName("test_10 post Api Without Csrf Token Is Rejected")
+    @DisplayName("test_11 post Api Without Csrf Token Is Rejected")
     @Test
     void postApiWithoutCsrfTokenIsRejected() throws Exception {
         mockMvc.perform(post("/api/rooms")

@@ -50,7 +50,7 @@ class DashboardControllerTest {
                 .andExpect(header().string("X-Robots-Tag", "noindex, nofollow, noarchive"))
                 .andExpect(content().string(containsString("<div id=\"root\"></div>")))
                 .andExpect(content().string(containsString("/js/app.js")))
-                .andExpect(content().string(containsString("民宿管理システム")));
+                .andExpect(content().string(containsString("白馬樹海")));
     }
 
     /**
