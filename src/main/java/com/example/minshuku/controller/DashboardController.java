@@ -11,7 +11,7 @@ public class DashboardController {
     /**
      * React の初期ページを返す。集計データは /api/dashboard で取得する。
      */
-    @GetMapping({"/", "/dashboard"})
+    @GetMapping({"/", "/dashboard", "/login", "/setup", "/customers", "/finance", "/reports"})
     public String dashboard() {
         return "app";
     }

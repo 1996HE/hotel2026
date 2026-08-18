@@ -28,7 +28,7 @@ public interface RoomMapper {
     List<Room> findActive();
 
     /**
-     * 予約登録時に選択できる「空室かつ清掃済み」の客室を取得する。
+     * 予約登録時の候補となる有効客室を取得する。最終的な可否は宿泊日と既存予約から判定する。
      */
     List<Room> findBookable();
 

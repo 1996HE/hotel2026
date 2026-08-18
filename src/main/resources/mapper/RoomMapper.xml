@@ -59,12 +59,10 @@
   </select>
 
   <select id="findBookable" resultMap="RoomResultMap">
-    <!-- 予約フォームには空室かつ清掃済みの客室だけを渡す。 -->
+    <!-- 将来予約を妨げないよう、候補一覧は現在の物理状態ではなく有効性だけで絞る。 -->
     SELECT <include refid="RoomColumns" />
     FROM rooms
     WHERE active = true
-      AND occupancy_status = 'vacant'
-      AND cleaning_status = 'cleaned'
     ORDER BY room_number
   </select>
 

@@ -20,4 +20,8 @@
       #{guestPhone}
     )
   </insert>
+
+  <delete id="deleteByReservationId">
+    DELETE FROM reservation_guests WHERE reservation_id = #{reservationId}
+  </delete>
 </mapper>

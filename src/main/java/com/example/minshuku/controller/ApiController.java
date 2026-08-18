@@ -15,8 +15,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 /**
  * React フロントエンドから利用する JSON API。
@@ -26,7 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class ApiController {
-    private static final int PAGE_SIZE = 5;
+    private static final int DASHBOARD_PAGE_SIZE = 5;
+    private static final int RESERVATION_PAGE_SIZE = 5;
 
     private final RoomService roomService;
     private final ReservationService reservationService;
@@ -43,13 +46,14 @@ public class ApiController {
 
     @GetMapping("/dashboard")
     public DashboardResponse dashboard() {
-        // 画面表示前に期限到来チェックアウトを同期し、ダッシュボード集計を最新化する。
-        reservationService.syncDueCheckouts();
         return new DashboardResponse(
                 roomService.countAll(),
                 roomService.countVacant(),
                 reservationService.countBooked(),
-                firstPage(reservationService.findRecentPage(1, PAGE_SIZE), reservationService.countRecent()));
+                firstPage(
+                        reservationService.findRecentPage(1, DASHBOARD_PAGE_SIZE),
+                        reservationService.countRecent(),
+                        DASHBOARD_PAGE_SIZE));
     }
 
     @GetMapping("/rooms")
@@ -111,13 +115,33 @@ public class ApiController {
     }
 
     @GetMapping("/reservations")
-    public ReservationsResponse reservations() {
-        // 予約一覧系は、表示時点でチェックアウト対象を反映した状態を返す。
-        reservationService.syncDueCheckouts();
+    public ReservationsResponse reservations(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "1") int cancelledPage,
+            @RequestParam(defaultValue = "1") int checkedOutPage) {
+        int reservationCount = reservationService.countRecent();
+        int cancelledCount = reservationService.countCancelled();
+        int checkedOutCount = reservationService.countCheckedOut();
+        int safeReservationPage = safePage(page, reservationCount, RESERVATION_PAGE_SIZE);
+        int safeCancelledPage = safePage(cancelledPage, cancelledCount, RESERVATION_PAGE_SIZE);
+        int safeCheckedOutPage = safePage(checkedOutPage, checkedOutCount, RESERVATION_PAGE_SIZE);
+
         return new ReservationsResponse(
-                firstPage(reservationService.findRecentPage(1, PAGE_SIZE), reservationService.countRecent()),
-                firstPage(reservationService.findCancelledPage(1, PAGE_SIZE), reservationService.countCancelled()),
-                firstPage(reservationService.findCheckedOutPage(1, PAGE_SIZE), reservationService.countCheckedOut()),
+                page(
+                        reservationService.findRecentPage(safeReservationPage, RESERVATION_PAGE_SIZE),
+                        safeReservationPage,
+                        reservationCount,
+                        RESERVATION_PAGE_SIZE),
+                page(
+                        reservationService.findCancelledPage(safeCancelledPage, RESERVATION_PAGE_SIZE),
+                        safeCancelledPage,
+                        cancelledCount,
+                        RESERVATION_PAGE_SIZE),
+                page(
+                        reservationService.findCheckedOutPage(safeCheckedOutPage, RESERVATION_PAGE_SIZE),
+                        safeCheckedOutPage,
+                        checkedOutCount,
+                        RESERVATION_PAGE_SIZE),
                 roomService.findBookable(),
                 reservationService.currentDate());
     }
@@ -133,6 +157,32 @@ public class ApiController {
                 request.companionAges(),
                 request.companionPhones());
         return new MessageResponse("予約を登録しました。");
+    }
+
+    @PutMapping("/reservations/{id}")
+    public MessageResponse updateReservation(@PathVariable Integer id, @RequestBody ReservationCreateRequest request) {
+        reservationService.update(
+                id,
+                request.reservation(),
+                request.noPhoneInfo() && request.noEmailInfo(),
+                request.companionNames(),
+                request.companionKanas(),
+                request.companionGenders(),
+                request.companionAges(),
+                request.companionPhones());
+        return new MessageResponse("予約を更新しました。");
+    }
+
+    @PostMapping("/reservations/{id}/check-in")
+    public MessageResponse checkIn(@PathVariable Integer id) {
+        reservationService.checkIn(id);
+        return new MessageResponse("チェックインしました。");
+    }
+
+    @PostMapping("/reservations/{id}/check-out")
+    public MessageResponse checkOut(@PathVariable Integer id) {
+        reservationService.checkOut(id);
+        return new MessageResponse("チェックアウトしました。");
     }
 
     @PostMapping("/reservations/{id}/payment")
@@ -180,14 +230,21 @@ public class ApiController {
         return new ErrorResponse(ex.getMessage());
     }
 
-    private <T> PageResponse<T> firstPage(List<T> items, int totalCount) {
-        // 現行画面は初期表示のみ取得するため、API 側でページ情報の形を統一する。
-        return new PageResponse<>(items, 1, totalPages(totalCount));
+    private <T> PageResponse<T> firstPage(List<T> items, int totalCount, int pageSize) {
+        return page(items, 1, totalCount, pageSize);
     }
 
-    private int totalPages(int totalCount) {
+    private <T> PageResponse<T> page(List<T> items, int page, int totalCount, int pageSize) {
+        return new PageResponse<>(items, page, totalPages(totalCount, pageSize), totalCount);
+    }
+
+    private int safePage(int requestedPage, int totalCount, int pageSize) {
+        return Math.min(Math.max(1, requestedPage), totalPages(totalCount, pageSize));
+    }
+
+    private int totalPages(int totalCount, int pageSize) {
         // データが0件でも画面側のページ表示を1ページとして扱う。
-        return Math.max(1, (totalCount + PAGE_SIZE - 1) / PAGE_SIZE);
+        return Math.max(1, (totalCount + pageSize - 1) / pageSize);
     }
 
     /**
@@ -200,7 +257,7 @@ public class ApiController {
     /**
      * 一覧系レスポンス共通のページ情報。
      */
-    public record PageResponse<T>(List<T> items, int page, int totalPages) {
+    public record PageResponse<T>(List<T> items, int page, int totalPages, int totalCount) {
     }
 
     /**
