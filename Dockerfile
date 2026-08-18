@@ -14,9 +14,16 @@ COPY src src
 COPY --from=frontend /workspace/src/main/resources/static/js/app.js src/main/resources/static/js/app.js
 RUN mvn --batch-mode -DskipTests package
 
-FROM eclipse-temurin:17-jre-alpine
-RUN addgroup -S app && adduser -S app -G app
+# Ubuntu-based Temurin publishes both arm64 and amd64 images, so the same image
+# runs on Apple Silicon Macs, Intel/Windows Docker Desktop and Linux servers.
+FROM eclipse-temurin:17-jre-noble
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends postgresql-client wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && addgroup --system app \
+    && adduser --system --ingroup app app
 WORKDIR /app
+RUN mkdir -p /backups && chown app:app /backups
 COPY --from=backend /workspace/target/minshuku-management-*.jar app.jar
 USER app
 EXPOSE 8000

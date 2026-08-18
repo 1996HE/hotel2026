@@ -15,6 +15,7 @@ import com.example.minshuku.config.SecurityConfig;
 import com.example.minshuku.domain.Reservation;
 import com.example.minshuku.domain.Room;
 import com.example.minshuku.domain.RoomPriceRule;
+import com.example.minshuku.service.AdminUserService;
 import com.example.minshuku.service.ReservationService;
 import com.example.minshuku.service.RoomPriceRuleService;
 import com.example.minshuku.service.RoomService;
@@ -29,10 +30,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ApiController.class)
 @Import(SecurityConfig.class)
+@WithMockUser(username = "admin")
 @LoggedTest
 @DisplayName("React API コントローラー")
 /**
@@ -47,6 +50,8 @@ class ApiControllerTest {
     private ReservationService reservationService;
     @MockBean
     private RoomPriceRuleService priceRuleService;
+    @MockBean
+    private AdminUserService adminUserService;
 
     /**
      * テストケース名：test_01 dashboard Api Returns Summary And Reservations

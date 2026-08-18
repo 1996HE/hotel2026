@@ -71,3 +71,8 @@ management:
 app:
   checkout-sync-cron: ${APP_CHECKOUT_SYNC_CRON:0 0 * * * *}
   time-zone: ${APP_TIME_ZONE:Asia/Tokyo}
+  backup:
+    enabled: ${BACKUP_ENABLED:true}
+    cron: ${BACKUP_CRON:0 0 2 * * *}
+    directory: ${BACKUP_DIRECTORY:./backups}
+    pg-dump-command: ${PG_DUMP_COMMAND:pg_dump}

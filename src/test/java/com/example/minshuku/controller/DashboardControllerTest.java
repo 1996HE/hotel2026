@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 import com.example.minshuku.config.SecurityConfig;
+import com.example.minshuku.service.AdminUserService;
 import com.example.minshuku.service.ReservationService;
 import com.example.minshuku.service.RoomService;
 import com.example.minshuku.support.LoggedTest;
@@ -17,10 +18,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(DashboardController.class)
 @Import(SecurityConfig.class)
+@WithMockUser(username = "admin")
 @LoggedTest
 @DisplayName("予約一覧画面コントローラー")
 /**
@@ -33,6 +36,8 @@ class DashboardControllerTest {
     private RoomService roomService;
     @MockBean
     private ReservationService reservationService;
+    @MockBean
+    private AdminUserService adminUserService;
 
     /**
      * テストケース名：test_01 dashboard Shows Reservation List Normally

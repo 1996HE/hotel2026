@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { I18nProvider, LanguageToggle, TranslationBoundary, useI18n } from "./i18n.jsx";
 
 const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
 const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "X-CSRF-TOKEN";
@@ -23,7 +24,9 @@ async function api(path, options = {}) {
   const response = await fetch(withContext(path), { ...options, headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || "処理に失敗しました。");
+    const error = new Error(data.error || "処理に失敗しました。");
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -39,12 +42,14 @@ const totalPages = (count) => Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
 const slicePage = (items, page) => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 const padPage = (items) => Array.from({ length: PAGE_SIZE }, (_, index) => items[index] || null);
 
-function Nav({ route }) {
+function Nav({ route, onLogout }) {
   const items = [
     ["/dashboard", "ホーム", "dashboard"],
     ["/rooms", "客室管理", "rooms"],
     ["/reservations", "予約管理", "calendar"],
     ["/prices", "料金設定", "price"],
+    ["/customers", "顧客管理", "customers"],
+    ["/finance", "営業・会計", "finance"],
   ];
   return (
     <aside className="topbar" aria-label="管理画面サイドバー">
@@ -64,6 +69,7 @@ function Nav({ route }) {
             <a
               key={href}
               href={withContext(href)}
+              aria-label={label}
               className={active ? "active" : ""}
               aria-current={active ? "page" : undefined}
             >
@@ -73,11 +79,21 @@ function Nav({ route }) {
           );
         })}
       </nav>
+      <div className="mobile-utilities">
+        <LanguageToggle compact />
+        <button type="button" aria-label="ログアウト" onClick={onLogout}>
+          ↪
+        </button>
+      </div>
       <div className="sidebar-footer">
+        <LanguageToggle compact />
         <span className="system-status">
           <i aria-hidden="true" />
           営業中
         </span>
+        <button type="button" className="sidebar-logout" onClick={onLogout}>
+          ログアウト
+        </button>
         <small>Hakuba Jukai Ryokan</small>
       </div>
     </aside>
@@ -114,6 +130,18 @@ function NavIcon({ name }) {
         <path d="M20.6 13.6 11 23.2 1.8 14 11.4 4.4H20v8.6Z" transform="scale(.88) translate(1 -1)" />
         <circle cx="16" cy="7" r="1.2" />
         <path d="M8 11h7M8 14h7M11.5 11v7" />
+      </>
+    ),
+    customers: (
+      <>
+        <circle cx="9" cy="8" r="4" />
+        <path d="M3 21v-2a6 6 0 0 1 12 0v2M17 11h4M19 9v4" />
+      </>
+    ),
+    finance: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 10h18M7 15h3" />
       </>
     ),
   };
@@ -221,6 +249,81 @@ async function runAction(action, setNotice) {
   }
 }
 
+function AuthenticationScreen({ authStatus, onAuthenticated }) {
+  const { t } = useI18n();
+  const [form, setForm] = useState({ username: "", password: "" });
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState({});
+  const setup = Boolean(authStatus.setupRequired);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setNotice({});
+    try {
+      if (setup) {
+        await api("/api/auth/setup", { method: "POST", body: JSON.stringify(form) });
+      }
+      await api("/api/auth/login", { method: "POST", body: JSON.stringify(form) });
+      onAuthenticated(form.username);
+    } catch (error) {
+      setNotice({ error: error.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <main className="auth-page" id="main-content">
+      <section className="auth-card">
+        <div className="auth-brand" aria-hidden="true">
+          樹
+        </div>
+        <p className="eyebrow">HAKUBA JUKAI</p>
+        <h1>{setup ? t("初期設定", "初始设置") : t("管理者ログイン", "管理员登录")}</h1>
+        <p className="page-description">
+          {setup
+            ? t("最初に、この端末で使用する管理者を登録してください。", "请先登记本机使用的管理员。")
+            : t("登録済みの管理者情報を入力してください。", "请输入已登记的管理员信息。")}
+        </p>
+        <LanguageToggle />
+        <Notice {...notice} onClose={() => setNotice({})} />
+        <form className="form auth-form" onSubmit={submit}>
+          <label>
+            {t("ユーザー名", "用户名")}
+            <input
+              required
+              minLength="3"
+              maxLength="64"
+              autoComplete="username"
+              value={form.username}
+              onChange={(event) => setForm({ ...form, username: event.target.value })}
+            />
+          </label>
+          <label>
+            {t("パスワード", "密码")}
+            <input
+              required
+              minLength="10"
+              type="password"
+              autoComplete={setup ? "new-password" : "current-password"}
+              value={form.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+            />
+          </label>
+          <button className="form-submit" type="submit" disabled={busy}>
+            {busy
+              ? t("処理中...", "处理中...")
+              : setup
+                ? t("管理者を登録して開始", "登记管理员并开始")
+                : t("ログイン", "登录")}
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
 function Dashboard() {
   const [data, setData] = useState(null);
   const [notice, setNotice] = useState({});
@@ -269,7 +372,7 @@ function Dashboard() {
   );
 }
 
-function Metric({ label, value, icon, tone }) {
+function Metric({ label, value, icon, tone, unit = "室", detail = "現在" }) {
   return (
     <article className={`metric metric-${tone || "green"}`}>
       <span className="metric-icon">
@@ -279,10 +382,10 @@ function Metric({ label, value, icon, tone }) {
         <span>{label}</span>
         <strong>
           {value}
-          <small>室</small>
+          {unit ? <small>{unit}</small> : null}
         </strong>
       </div>
-      <span className="metric-detail">現在</span>
+      <span className="metric-detail">{detail}</span>
     </article>
   );
 }
@@ -821,7 +924,547 @@ function Prices() {
   );
 }
 
+function Customers() {
+  const { t } = useI18n();
+  const emptyForm = { name: "", phone: "", email: "" };
+  const [customers, setCustomers] = useState([]);
+  const [query, setQuery] = useState("");
+  const [form, setForm] = useState(emptyForm);
+  const [selected, setSelected] = useState(null);
+  const [stays, setStays] = useState([]);
+  const [notice, setNotice] = useState({});
+
+  const load = useCallback(async (search) => {
+    try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("query", search.trim());
+      setCustomers(await api(`/api/customers?${params.toString()}`));
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  }, []);
+
+  useEffect(() => {
+    load("");
+  }, [load]);
+
+  const selectCustomer = async (customer) => {
+    setSelected(customer);
+    setForm({
+      name: customer.name || "",
+      phone: customer.phone || "",
+      email: customer.email || "",
+    });
+    try {
+      setStays(await api(`/api/customers/${customer.id}/stays`));
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    try {
+      const saved = await api(selected ? `/api/customers/${selected.id}` : "/api/customers", {
+        method: selected ? "PUT" : "POST",
+        body: JSON.stringify(form),
+      });
+      setNotice({
+        message: selected
+          ? t("顧客情報を更新しました。", "客户信息已更新。")
+          : t("顧客を登録しました。", "客户已登记。"),
+      });
+      setSelected(saved);
+      setForm({ name: saved.name || "", phone: saved.phone || "", email: saved.email || "" });
+      await load(query);
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  };
+
+  const startNew = () => {
+    setSelected(null);
+    setForm(emptyForm);
+    setStays([]);
+  };
+
+  return (
+    <main className="page grid-page customers-page" id="main-content">
+      <PageHeader
+        eyebrow="GUEST DIRECTORY"
+        title={t("顧客管理", "客户管理")}
+        description={t(
+          "氏名と連絡先を管理し、過去の宿泊記録を確認できます。",
+          "管理姓名和联系方式，并可查看历史住宿记录。"
+        )}
+        action={<button onClick={startNew}>{t("新規顧客", "新建客户")}</button>}
+      />
+      <section className="panel form-panel">
+        <span className="section-kicker">CUSTOMER</span>
+        <h2>{selected ? t("顧客を編集", "编辑客户") : t("顧客を登録", "登记客户")}</h2>
+        <Notice {...notice} onClose={() => setNotice({})} />
+        <form className="form" onSubmit={submit}>
+          <label>
+            {t("顧客名", "客户姓名")}
+            <input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+          </label>
+          <label>
+            {t("電話", "电话")}
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+            />
+          </label>
+          <label>
+            {t("メール", "邮箱")}
+            <input
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+            />
+          </label>
+          <button className="form-submit" type="submit">
+            {selected ? t("保存", "保存") : t("登録", "登记")}
+          </button>
+        </form>
+      </section>
+      <section className="panel wide data-panel">
+        <div className="section-title customer-search-title">
+          <div>
+            <span className="section-kicker">CUSTOMERS</span>
+            <h2>{t("顧客一覧", "客户列表")}</h2>
+          </div>
+          <form
+            className="search-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              load(query);
+            }}
+          >
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("氏名・電話・メール", "姓名、电话、邮箱")}
+            />
+            <button type="submit">{t("検索", "搜索")}</button>
+          </form>
+        </div>
+        <div className="table-scroll">
+          <table className="table customer-table">
+            <thead>
+              <tr>
+                <th>{t("顧客番号", "客户编号")}</th>
+                <th>{t("氏名", "姓名")}</th>
+                <th>{t("電話", "电话")}</th>
+                <th>{t("メール", "邮箱")}</th>
+                <th>{t("宿泊回数", "住宿次数")}</th>
+                <th>{t("操作", "操作")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.length ? (
+                customers.map((customer) => (
+                  <tr key={customer.id} className={selected?.id === customer.id ? "selected-row" : ""}>
+                    <td>{customer.customerNo}</td>
+                    <td>{customer.name}</td>
+                    <td>{text(customer.phone, "—")}</td>
+                    <td>{text(customer.email, "—")}</td>
+                    <td>{customer.stayCount || 0}</td>
+                    <td>
+                      <button type="button" onClick={() => selectCustomer(customer)}>
+                        {t("詳細", "详情")}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="empty">
+                    {t("顧客データがありません。", "没有客户数据。")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {selected ? (
+          <section className="stay-history">
+            <h2>
+              {t("宿泊履歴", "住宿记录")} · {selected.name}
+            </h2>
+            <div className="table-scroll">
+              <table className="table compact-table">
+                <thead>
+                  <tr>
+                    <th>{t("予約番号", "订单编号")}</th>
+                    <th>{t("客室", "客房")}</th>
+                    <th>{t("日程", "日期")}</th>
+                    <th>{t("人数", "人数")}</th>
+                    <th>{t("金額", "金额")}</th>
+                    <th>{t("状態", "状态")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stays.length ? (
+                    stays.map((stay) => (
+                      <tr key={stay.id}>
+                        <td>{stay.reservationNo}</td>
+                        <td>
+                          {stay.roomNumber} {stay.roomName}
+                        </td>
+                        <td>
+                          {stay.checkInDate} → {stay.checkOutDate}
+                        </td>
+                        <td>{stay.guestCount}</td>
+                        <td>{yen(stay.totalAmount)}</td>
+                        <td>{stay.reservationStatusLabel}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="empty">
+                        {t("宿泊履歴がありません。", "没有住宿记录。")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
+function Finance() {
+  const { language, t } = useI18n();
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const [range, setRange] = useState({ startDate: monthStart, endDate: today });
+  const [summary, setSummary] = useState({ receivable: 0, received: 0, refunded: 0, netRevenue: 0, rows: [] });
+  const [selected, setSelected] = useState(null);
+  const [finance, setFinance] = useState(null);
+  const [payment, setPayment] = useState({ amount: "", method: "cash" });
+  const [refund, setRefund] = useState({ amount: "" });
+  const [backups, setBackups] = useState({ directory: "", history: [] });
+  const [notice, setNotice] = useState({});
+
+  const loadSummary = useCallback(async () => {
+    try {
+      const params = new URLSearchParams(range);
+      setSummary(await api(`/api/finance?${params.toString()}`));
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  }, [range]);
+
+  const loadBackups = useCallback(async () => {
+    try {
+      setBackups(await api("/api/backups"));
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSummary();
+    loadBackups();
+  }, [loadBackups, loadSummary]);
+
+  const choose = async (row) => {
+    setSelected(row);
+    try {
+      const current = await api(`/api/finance/${row.reservationId || row.id}`);
+      setFinance(current);
+      setPayment({
+        amount: String(current.receivedAmount || row.totalAmount || 0),
+        method: current.paymentMethod || "cash",
+      });
+      setRefund({ amount: String(current.refundAmount || 0) });
+    } catch (error) {
+      // Report rows contain reservationId in the updated API; this guard keeps old cached responses understandable.
+      setNotice({ error: error.message });
+    }
+  };
+
+  const submitPayment = async (event) => {
+    event.preventDefault();
+    try {
+      const saved = await api(`/api/finance/${selected.reservationId}/payment`, {
+        method: "POST",
+        body: JSON.stringify({ amount: Number(payment.amount), method: payment.method }),
+      });
+      setFinance(saved);
+      setNotice({ message: t("入金を保存しました。", "收款已保存。") });
+      await loadSummary();
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  };
+
+  const submitRefund = async (event) => {
+    event.preventDefault();
+    try {
+      const saved = await api(`/api/finance/${selected.reservationId}/refund`, {
+        method: "POST",
+        body: JSON.stringify({ amount: Number(refund.amount) }),
+      });
+      setFinance(saved);
+      setNotice({ message: t("返金を保存しました。", "退款已保存。") });
+      await loadSummary();
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  };
+
+  const runBackup = async () => {
+    try {
+      const result = await api("/api/backups", { method: "POST" });
+      setNotice(
+        result.status === "success"
+          ? { message: t("バックアップが完了しました。", "备份已完成。") }
+          : { error: result.message }
+      );
+      await loadBackups();
+    } catch (error) {
+      setNotice({ error: error.message });
+    }
+  };
+
+  const exportUrl = withContext(
+    `/api/reports/business.xlsx?${new URLSearchParams({ ...range, lang: language }).toString()}`
+  );
+  return (
+    <main className="page finance-page" id="main-content">
+      <PageHeader
+        eyebrow="BUSINESS & FINANCE"
+        title={t("営業・会計", "营业与收款")}
+        description={t(
+          "予約ごとの応収・実収・返金と月次営業状況を確認します。",
+          "查看每笔订单的应收、实收、退款和月度营业情况。"
+        )}
+      />
+      <Notice {...notice} onClose={() => setNotice({})} />
+      <section className="panel finance-toolbar">
+        <div className="date-range-form">
+          <label>
+            {t("開始日", "开始日")}
+            <input
+              type="date"
+              value={range.startDate}
+              onChange={(event) => setRange({ ...range, startDate: event.target.value })}
+            />
+          </label>
+          <label>
+            {t("終了日", "结束日")}
+            <input
+              type="date"
+              value={range.endDate}
+              onChange={(event) => setRange({ ...range, endDate: event.target.value })}
+            />
+          </label>
+          <button type="button" onClick={loadSummary}>
+            {t("集計", "统计")}
+          </button>
+          <a className="button" href={exportUrl}>
+            {t("Excel出力", "导出Excel")}
+          </a>
+        </div>
+      </section>
+      <section className="metrics finance-metrics">
+        <Metric
+          label={t("売上予定", "应收金额")}
+          value={yen(summary.receivable)}
+          icon="calendar"
+          tone="indigo"
+          unit=""
+          detail={t("期間内", "期间内")}
+        />
+        <Metric
+          label={t("入金額", "实收金额")}
+          value={yen(summary.received)}
+          icon="dashboard"
+          tone="green"
+          unit=""
+          detail={t("期間内", "期间内")}
+        />
+        <Metric
+          label={t("返金額", "退款金额")}
+          value={yen(summary.refunded)}
+          icon="price"
+          tone="gold"
+          unit=""
+          detail={t("期間内", "期间内")}
+        />
+        <Metric
+          label={t("実収入", "净收入")}
+          value={yen(summary.netRevenue)}
+          icon="dashboard"
+          tone="green"
+          unit=""
+          detail={t("期間内", "期间内")}
+        />
+      </section>
+      <div className="finance-layout">
+        <section className="panel data-panel finance-list-panel">
+          <div className="section-title">
+            <div>
+              <span className="section-kicker">PAYMENTS</span>
+              <h2>{t("入返金管理", "收退款管理")}</h2>
+            </div>
+            <span className="record-count">
+              {summary.rows.length} {t("件", "条")}
+            </span>
+          </div>
+          <div className="table-scroll">
+            <table className="table finance-table">
+              <thead>
+                <tr>
+                  <th>{t("予約番号", "订单编号")}</th>
+                  <th>{t("顧客", "客户")}</th>
+                  <th>{t("日程", "日期")}</th>
+                  <th>{t("売上予定", "应收金额")}</th>
+                  <th>{t("入金", "实收")}</th>
+                  <th>{t("返金", "退款")}</th>
+                  <th>{t("方法", "方式")}</th>
+                  <th>{t("操作", "操作")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.rows.length ? (
+                  summary.rows.map((row) => (
+                    <tr
+                      key={row.reservationNo}
+                      className={selected?.reservationNo === row.reservationNo ? "selected-row" : ""}
+                    >
+                      <td>{row.reservationNo}</td>
+                      <td>{row.guestName}</td>
+                      <td>
+                        {row.checkInDate} → {row.checkOutDate}
+                      </td>
+                      <td>{yen(row.totalAmount)}</td>
+                      <td>{yen(row.receivedAmount)}</td>
+                      <td>{yen(row.refundAmount)}</td>
+                      <td>{paymentMethodLabel(row.paymentMethod, t)}</td>
+                      <td>
+                        <button type="button" onClick={() => choose(row)}>
+                          {t("記録", "记录")}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="8" className="empty">
+                      {t("対象データがありません。", "没有符合条件的数据。")}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {selected && finance ? (
+          <aside className="panel finance-editor">
+            <span className="section-kicker">{selected.reservationNo}</span>
+            <h2>{selected.guestName}</h2>
+            <form className="form" onSubmit={submitPayment}>
+              <h3>{t("入金", "收款")}</h3>
+              <label>
+                {t("入金額", "实收金额")}
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={payment.amount}
+                  onChange={(event) => setPayment({ ...payment, amount: event.target.value })}
+                />
+              </label>
+              <label>
+                {t("支払方法", "支付方式")}
+                <select
+                  value={payment.method}
+                  onChange={(event) => setPayment({ ...payment, method: event.target.value })}
+                >
+                  <option value="cash">{t("現金", "现金")}</option>
+                  <option value="card">{t("カード", "银行卡")}</option>
+                  <option value="transfer">{t("振込", "转账")}</option>
+                  <option value="platform">{t("予約サイト", "平台收款")}</option>
+                </select>
+              </label>
+              <button type="submit">{t("入金を保存", "保存收款")}</button>
+            </form>
+            <form className="form refund-form" onSubmit={submitRefund}>
+              <h3>{t("返金", "退款")}</h3>
+              <label>
+                {t("返金額", "退款金额")}
+                <input
+                  type="number"
+                  min="0"
+                  max={finance.receivedAmount || 0}
+                  step="1"
+                  value={refund.amount}
+                  onChange={(event) => setRefund({ ...refund, amount: event.target.value })}
+                />
+              </label>
+              <button type="submit" className="danger">
+                {t("返金を保存", "保存退款")}
+              </button>
+            </form>
+          </aside>
+        ) : null}
+      </div>
+      <section className="panel backup-panel">
+        <div className="section-title">
+          <div>
+            <span className="section-kicker">LOCAL BACKUP</span>
+            <h2>{t("バックアップ", "备份")}</h2>
+          </div>
+          <button type="button" onClick={runBackup}>
+            {t("手動バックアップ", "立即备份")}
+          </button>
+        </div>
+        <p>
+          <strong>{t("保存先フォルダ", "保存文件夹")}:</strong> <code>{backups.directory}</code>
+        </p>
+        <p className="muted">
+          {t("毎日自動保存します。古いバックアップは自動削除しません。", "每天自动保存，不会自动删除旧备份。")}
+        </p>
+        <div className="backup-history">
+          {backups.history.slice(0, 5).map((item) => (
+            <div key={item.id}>
+              <Tag
+                status={item.status === "success" ? "is-paid" : item.status === "failed" ? "is-cancelled" : "is-booked"}
+              >
+                {item.status}
+              </Tag>
+              <span>{item.startedAt?.replace("T", " ")}</span>
+              <span>{item.fileSizeBytes ? `${Math.round(item.fileSizeBytes / 1024)} KB` : item.message}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function paymentMethodLabel(method, t) {
+  return (
+    {
+      cash: t("現金", "现金"),
+      card: t("カード", "银行卡"),
+      transfer: t("振込", "转账"),
+      platform: t("予約サイト", "平台收款"),
+      unknown: t("不明", "未知"),
+    }[method] || t("未入金", "未收款")
+  );
+}
+
 function Reservations() {
+  const { language, t } = useI18n();
   const [data, setData] = useState({
     reservations: { items: [], page: 1, totalPages: 1, totalCount: 0 },
     cancelledReservations: { items: [], page: 1, totalPages: 1, totalCount: 0 },
@@ -832,7 +1475,7 @@ function Reservations() {
   const [cancelledPage, setCancelledPage] = useState(1);
   const [checkedOutPage, setCheckedOutPage] = useState(1);
   const [notice, setNotice] = useState({});
-  const [form, setForm] = useState({ guestCount: 1, reservationForm: "公式", paymentStatus: "unpaid" });
+  const [form, setForm] = useState({ guestCount: 1, reservationForm: "公式" });
   const load = useCallback(async () => {
     const params = new URLSearchParams({
       page: String(reservationPage),
@@ -875,7 +1518,6 @@ function Reservations() {
       guestEmail: form.noEmailInfo ? null : form.guestEmail,
       guestCount: Number(form.guestCount),
       reservationForm: form.reservationForm,
-      paymentStatus: form.paymentStatus,
       note: form.note,
     };
     try {
@@ -893,18 +1535,22 @@ function Reservations() {
         }),
       });
       setNotice({ message: res.message });
-      setForm({ guestCount: 1, reservationForm: "公式", paymentStatus: "unpaid" });
+      setForm({ guestCount: 1, reservationForm: "公式" });
       load();
     } catch (error) {
       setNotice({ error: error.message });
     }
   };
-  const payment = async (item, paymentStatus) => {
+  const checkIn = async (item) => {
     runAction(async () => {
-      const res = await api(`/api/reservations/${item.id}/payment`, {
-        method: "POST",
-        body: JSON.stringify({ paymentStatus }),
-      });
+      const res = await api(`/api/reservations/${item.id}/check-in`, { method: "POST" });
+      setNotice({ message: res.message });
+      load();
+    }, setNotice);
+  };
+  const checkOut = async (item) => {
+    runAction(async () => {
+      const res = await api(`/api/reservations/${item.id}/check-out`, { method: "POST" });
       setNotice({ message: res.message });
       load();
     }, setNotice);
@@ -958,7 +1604,9 @@ function Reservations() {
               <option value="">空室・清掃済の部屋を選択してください</option>
               {data.rooms.map((room) => (
                 <option key={room.id} value={room.id}>
-                  {room.roomNumber} {room.roomName} / 定員{room.capacity}名
+                  {room.roomNumber} {room.roomName} / {t("定員", "定员")}
+                  {room.capacity}
+                  {language === "zh" ? "人" : "名"}
                 </option>
               ))}
             </select>
@@ -1065,28 +1713,19 @@ function Reservations() {
               メールなし
             </label>
           </div>
-          <div className="form-grid form-grid-2">
-            <label>
-              予約形式
-              <select
-                value={form.reservationForm}
-                onChange={(e) => setForm({ ...form, reservationForm: e.target.value })}
-              >
-                <option>公式</option>
-                <option>電話</option>
-                <option>メール</option>
-                <option>予約サイト</option>
-                <option>現地</option>
-              </select>
-            </label>
-            <label>
-              支払い
-              <select value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
-                <option value="unpaid">未払い</option>
-                <option value="paid">支払済</option>
-              </select>
-            </label>
-          </div>
+          <label>
+            予約形式
+            <select
+              value={form.reservationForm}
+              onChange={(e) => setForm({ ...form, reservationForm: e.target.value })}
+            >
+              <option>公式</option>
+              <option>電話</option>
+              <option>メール</option>
+              <option>予約サイト</option>
+              <option>現地</option>
+            </select>
+          </label>
           {companions > 0 && (
             <section className="companion-panel">
               <div className="section-eyebrow">同行者情報</div>
@@ -1162,12 +1801,15 @@ function Reservations() {
             <h2>予約一覧</h2>
           </div>
           <span className="record-count">
-            全{data.reservations.totalCount}件・{data.reservations.items.length}件表示
+            {language === "zh"
+              ? `共${data.reservations.totalCount}条・显示${data.reservations.items.length}条`
+              : `全${data.reservations.totalCount}件・${data.reservations.items.length}件表示`}
           </span>
         </div>
         <ReservationTable
           reservations={data.reservations.items}
-          onPayment={payment}
+          onCheckIn={checkIn}
+          onCheckOut={checkOut}
           onCancel={cancel}
           caption="宿泊予約一覧"
         />
@@ -1207,7 +1849,8 @@ function Reservations() {
 
 function ReservationTable({
   reservations = [],
-  onPayment,
+  onCheckIn,
+  onCheckOut,
   onCancel,
   onDelete,
   readonly = false,
@@ -1245,7 +1888,8 @@ function ReservationTable({
               <ReservationRow
                 key={item.id}
                 item={item}
-                onPayment={onPayment}
+                onCheckIn={onCheckIn}
+                onCheckOut={onCheckOut}
                 onCancel={onCancel}
                 onDelete={onDelete}
                 readonly={readonly || compact}
@@ -1287,8 +1931,8 @@ function ReservationColGroup({ compact, includeActions, includeDelete }) {
   );
 }
 
-function ReservationRow({ item, onPayment, onCancel, onDelete, readonly, compact, showDelete }) {
-  const [paymentStatus, setPaymentStatus] = useState(item.paymentStatus);
+function ReservationRow({ item, onCheckIn, onCheckOut, onCancel, onDelete, readonly, compact, showDelete }) {
+  const { language } = useI18n();
   const allowActions = !readonly && !compact;
   return (
     <tr>
@@ -1302,11 +1946,14 @@ function ReservationRow({ item, onPayment, onCancel, onDelete, readonly, compact
           metaParts={[
             text(item.guestKana, "フリガナ未入力"),
             text(item.guestGender, "性別未入力"),
-            item.guestAge ? `${item.guestAge}歳` : "年齢未入力",
+            item.guestAge ? `${item.guestAge}${language === "zh" ? "岁" : "歳"}` : "年齢未入力",
           ]}
         />
       </td>
-      <td>{item.guestCount}名</td>
+      <td>
+        {item.guestCount}
+        {language === "zh" ? "人" : "名"}
+      </td>
       {!compact && <td>{text(item.guestPhone, "電話未入力")}</td>}
       {!compact && <td>{text(item.guestEmail, "メール未入力")}</td>}
       {!compact && <td>{text(item.reservationForm, "公式")}</td>}
@@ -1333,27 +1980,39 @@ function ReservationRow({ item, onPayment, onCancel, onDelete, readonly, compact
         </Tag>
       </td>
       <td>
-        <Tag status={item.paymentStatus === "paid" ? "is-paid" : "is-unpaid"}>{item.paymentStatusLabel}</Tag>
+        <Tag
+          status={
+            item.paymentStatus === "paid"
+              ? "is-paid"
+              : item.paymentStatus === "refunded" || item.paymentStatus === "partially_refunded"
+                ? "is-cancelled"
+                : "is-unpaid"
+          }
+        >
+          {item.paymentStatusLabel}
+        </Tag>
       </td>
       {allowActions && (
         <td className="actions">
           <div className="reservation-actions">
-            <div className="inline-form">
-              <select
-                aria-label={`${item.reservationNo}の支払い状態`}
-                value={paymentStatus}
-                onChange={(e) => setPaymentStatus(e.target.value)}
-              >
-                <option value="unpaid">未払い</option>
-                <option value="paid">支払済</option>
-              </select>
-              <button type="button" onClick={() => onPayment(item, paymentStatus)}>
-                更新
+            {item.reservationStatus === "booked" ? (
+              <button type="button" onClick={() => onCheckIn(item)}>
+                チェックイン
               </button>
-            </div>
-            <button type="button" className="danger" onClick={() => onCancel(item)}>
-              取消
-            </button>
+            ) : null}
+            {item.reservationStatus === "checked_in" ? (
+              <button type="button" onClick={() => onCheckOut(item)}>
+                チェックアウト
+              </button>
+            ) : null}
+            <a className="button button-quiet" href={withContext(`/finance?reservation=${item.id}`)}>
+              入返金
+            </a>
+            {item.reservationStatus === "booked" ? (
+              <button type="button" className="danger" onClick={() => onCancel(item)}>
+                取消
+              </button>
+            ) : null}
           </div>
         </td>
       )}
@@ -1473,6 +2132,7 @@ function CheckoutTable({ reservations = [], onCleaning, onDelete }) {
 }
 
 function CheckoutRow({ item, onCleaning, onDelete }) {
+  const { language } = useI18n();
   const [cleaningStatus, setCleaningStatus] = useState(item.roomCleaningStatus || "needs_cleaning");
   return (
     <tr>
@@ -1484,11 +2144,14 @@ function CheckoutRow({ item, onCleaning, onDelete }) {
           metaParts={[
             text(item.guestKana, "フリガナ未入力"),
             text(item.guestGender, "性別未入力"),
-            item.guestAge ? `${item.guestAge}歳` : "年齢未入力",
+            item.guestAge ? `${item.guestAge}${language === "zh" ? "岁" : "歳"}` : "年齢未入力",
           ]}
         />
       </td>
-      <td>{item.guestCount}名</td>
+      <td>
+        {item.guestCount}
+        {language === "zh" ? "人" : "名"}
+      </td>
       <td>{text(item.guestPhone, "電話未入力")}</td>
       <td>{text(item.guestEmail, "メール未入力")}</td>
       <td className="companion-summary">
@@ -1526,14 +2189,14 @@ function CheckoutRow({ item, onCleaning, onDelete }) {
   );
 }
 
-function App() {
+function ProtectedApplication({ onLogout }) {
   const route = currentRoute();
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
         本文へ移動
       </a>
-      <Nav route={route} />
+      <Nav route={route} onLogout={onLogout} />
       <div className="app-content">
         {route === "/rooms" ? (
           <Rooms />
@@ -1541,11 +2204,70 @@ function App() {
           <Reservations />
         ) : route === "/prices" ? (
           <Prices />
+        ) : route === "/customers" ? (
+          <Customers />
+        ) : route === "/finance" || route === "/reports" ? (
+          <Finance />
         ) : (
           <Dashboard />
         )}
       </div>
     </div>
+  );
+}
+
+function App() {
+  const [authStatus, setAuthStatus] = useState(null);
+  const [fatalError, setFatalError] = useState("");
+
+  useEffect(() => {
+    api("/api/auth/status")
+      .then(setAuthStatus)
+      .catch((error) => setFatalError(error.message));
+  }, []);
+
+  const authenticated = (username) => {
+    window.history.replaceState({}, "", withContext("/dashboard"));
+    setAuthStatus({ authenticated: true, setupRequired: false, username });
+  };
+
+  const logout = async () => {
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+    } finally {
+      window.history.replaceState({}, "", withContext("/login"));
+      setAuthStatus({ authenticated: false, setupRequired: false, username: null });
+    }
+  };
+
+  let content;
+  if (fatalError) {
+    content = (
+      <main className="auth-page">
+        <section className="auth-card">
+          <h1>起動エラー</h1>
+          <p>{fatalError}</p>
+        </section>
+      </main>
+    );
+  } else if (!authStatus) {
+    content = (
+      <main className="auth-page">
+        <section className="auth-card" role="status">
+          読み込み中...
+        </section>
+      </main>
+    );
+  } else if (!authStatus.authenticated) {
+    content = <AuthenticationScreen authStatus={authStatus} onAuthenticated={authenticated} />;
+  } else {
+    content = <ProtectedApplication onLogout={logout} />;
+  }
+
+  return (
+    <I18nProvider>
+      <TranslationBoundary>{content}</TranslationBoundary>
+    </I18nProvider>
   );
 }
 

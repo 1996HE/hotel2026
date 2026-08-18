@@ -6,11 +6,14 @@
     <id property="id" column="id" />
     <result property="reservationNo" column="reservation_no" />
     <result property="roomId" column="room_id" />
+    <result property="customerId" column="customer_id" />
     <result property="roomNumber" column="room_number" />
     <result property="roomName" column="room_name" />
     <result property="roomCleaningStatus" column="room_cleaning_status" />
     <result property="checkInDate" column="check_in_date" />
     <result property="checkOutDate" column="check_out_date" />
+    <result property="checkedInAt" column="checked_in_at" />
+    <result property="checkedOutAt" column="checked_out_at" />
     <result property="guestName" column="guest_name" />
     <result property="guestKana" column="guest_kana" />
     <result property="guestGender" column="guest_gender" />
@@ -33,11 +36,14 @@
     r.id,
     r.reservation_no,
     r.room_id,
+    r.customer_id,
     rooms.room_number,
     rooms.room_name,
     rooms.cleaning_status AS room_cleaning_status,
     r.check_in_date,
     r.check_out_date,
+    r.checked_in_at,
+    r.checked_out_at,
     r.guest_name,
     r.guest_kana,
     r.guest_gender,
@@ -59,11 +65,14 @@
     cr.id,
     cr.reservation_no,
     cr.room_id,
+    cr.customer_id,
     rooms.room_number,
     rooms.room_name,
     rooms.cleaning_status AS room_cleaning_status,
     cr.check_in_date,
     cr.check_out_date,
+    cr.checked_in_at,
+    cr.checked_out_at,
     cr.guest_name,
     cr.guest_kana,
     cr.guest_gender,
@@ -112,8 +121,11 @@
     cr.id,
     cr.reservation_no,
     cr.room_id,
+    cr.customer_id,
     cr.check_in_date,
     cr.check_out_date,
+    cr.checked_in_at,
+    cr.checked_out_at,
     cr.guest_name,
     cr.guest_kana,
     cr.guest_gender,
@@ -151,7 +163,7 @@
     FROM reservations r
       JOIN rooms ON rooms.id = r.room_id
       LEFT JOIN reservation_guests rg ON rg.reservation_id = r.id
-    WHERE r.reservation_status = 'booked'
+    WHERE r.reservation_status IN ('booked', 'checked_in')
     GROUP BY <include refid="ReservationGroupBy" />
     ORDER BY r.check_in_date DESC, r.id DESC
     LIMIT 100
@@ -164,7 +176,7 @@
     FROM reservations r
       JOIN rooms ON rooms.id = r.room_id
       LEFT JOIN reservation_guests rg ON rg.reservation_id = r.id
-    WHERE r.reservation_status = 'booked'
+    WHERE r.reservation_status IN ('booked', 'checked_in')
     GROUP BY <include refid="ReservationGroupBy" />
     ORDER BY r.check_in_date DESC, r.id DESC
     LIMIT #{limit} OFFSET #{offset}
@@ -226,7 +238,7 @@
     <!-- 予約件数は状態別集計の基準になる。 -->
     SELECT COUNT(*)
     FROM reservations
-    WHERE reservation_status = 'booked'
+    WHERE reservation_status IN ('booked', 'checked_in')
   </select>
 
   <select id="countCancelled" resultType="int">
@@ -247,7 +259,7 @@
       '' AS companion_summary
     FROM reservations r
       JOIN rooms ON rooms.id = r.room_id
-    WHERE r.reservation_status = 'booked'
+    WHERE r.reservation_status IN ('booked', 'checked_in')
       AND r.check_out_date &lt;= CURRENT_DATE
     ORDER BY r.check_out_date, r.id
   </select>
@@ -267,6 +279,7 @@
     INSERT INTO reservations (
       reservation_no,
       room_id,
+      customer_id,
       check_in_date,
       check_out_date,
       guest_name,
@@ -284,6 +297,7 @@
     ) VALUES (
       #{reservationNo},
       #{roomId},
+      #{customerId},
       #{checkInDate},
       #{checkOutDate},
       #{guestName},
@@ -301,11 +315,43 @@
     )
   </insert>
 
+  <update id="update" parameterType="com.example.minshuku.domain.Reservation">
+    <!-- 滞在開始前の予約内容だけを更新し、金額を再計算した値で置き換える。 -->
+    UPDATE reservations
+    SET room_id = #{roomId},
+        customer_id = #{customerId},
+        check_in_date = #{checkInDate},
+        check_out_date = #{checkOutDate},
+        guest_name = #{guestName},
+        guest_kana = #{guestKana},
+        guest_gender = #{guestGender},
+        guest_age = #{guestAge},
+        guest_phone = #{guestPhone},
+        guest_email = #{guestEmail},
+        guest_count = #{guestCount},
+        reservation_form = #{reservationForm},
+        total_amount = #{totalAmount},
+        note = #{note},
+        updated_at = now()
+    WHERE id = #{id}
+      AND reservation_status = 'booked'
+  </update>
+
   <select id="countOverlapping" resultType="int">
     SELECT COUNT(*)
     FROM reservations
     WHERE room_id = #{roomId}
-      AND reservation_status = 'booked'
+      AND reservation_status IN ('booked', 'checked_in')
+      AND check_in_date &lt; #{checkOutDate}
+      AND check_out_date &gt; #{checkInDate}
+  </select>
+
+  <select id="countOverlappingExcludingId" resultType="int">
+    SELECT COUNT(*)
+    FROM reservations
+    WHERE room_id = #{roomId}
+      AND reservation_status IN ('booked', 'checked_in')
+      AND id != #{excludedReservationId}
       AND check_in_date &lt; #{checkOutDate}
       AND check_out_date &gt; #{checkInDate}
   </select>
@@ -313,15 +359,17 @@
   <select id="countBooked" resultType="int">
     SELECT COUNT(*)
     FROM reservations
-    WHERE reservation_status = 'booked'
+    WHERE reservation_status IN ('booked', 'checked_in')
   </select>
 
-  <select id="countOtherBookedByRoomId" resultType="int">
+  <select id="countOtherBookedByRoomIdOnDate" resultType="int">
     SELECT COUNT(*)
     FROM reservations
     WHERE room_id = #{roomId}
-      AND reservation_status = 'booked'
+      AND reservation_status IN ('booked', 'checked_in')
       AND id != #{excludedReservationId}
+      AND check_in_date &lt;= #{stayDate}
+      AND check_out_date &gt; #{stayDate}
   </select>
 
   <update id="updatePaymentStatus">
@@ -344,8 +392,18 @@
     UPDATE reservations
     SET
       reservation_status = 'checked_out',
+      checked_out_at = now(),
       updated_at = now()
     WHERE id = #{id}
+  </update>
+
+  <update id="markCheckedIn">
+    UPDATE reservations
+    SET reservation_status = 'checked_in',
+        checked_in_at = now(),
+        updated_at = now()
+    WHERE id = #{id}
+      AND reservation_status = 'booked'
   </update>
 
   <update id="cancel">

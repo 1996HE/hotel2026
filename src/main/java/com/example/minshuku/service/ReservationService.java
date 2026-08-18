@@ -6,6 +6,7 @@ import com.example.minshuku.domain.Room;
 import com.example.minshuku.domain.RoomPriceRule;
 import com.example.minshuku.mapper.ReservationGuestMapper;
 import com.example.minshuku.mapper.ReservationMapper;
+import com.example.minshuku.mapper.ReservationFinanceMapper;
 import com.example.minshuku.mapper.RoomMapper;
 import com.example.minshuku.mapper.RoomPriceRuleMapper;
 import java.math.BigDecimal;
@@ -30,8 +31,8 @@ public class ReservationService {
     private static final Pattern KANA_PATTERN = Pattern.compile("^[ァ-ヶー\\s]+$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^\\d{3}-\\d{4}-\\d{4}$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
-    private static final Set<String> PAYMENT_STATUSES = Set.of("unpaid", "paid");
-    private static final Set<String> RESERVATION_STATUSES = Set.of("booked", "checked_out", "cancelled");
+    private static final Set<String> PAYMENT_STATUSES = Set.of("unpaid", "paid", "partially_refunded", "refunded");
+    private static final Set<String> RESERVATION_STATUSES = Set.of("booked", "checked_in", "checked_out", "cancelled");
     private static final Set<String> CLEANING_STATUSES = Set.of("needs_cleaning", "cleaned");
     private static final String MESSAGE_INVALID_KANA = "フリガナは全角カタカナで入力してください。";
     private static final String MESSAGE_INVALID_PHONE = "電話番号は000-0000-0000の形式で入力してください。";
@@ -45,16 +46,22 @@ public class ReservationService {
     private final ReservationGuestMapper reservationGuestMapper;
     private final RoomMapper roomMapper;
     private final RoomPriceRuleMapper priceRuleMapper;
+    private final CustomerService customerService;
+    private final ReservationFinanceMapper financeMapper;
 
     public ReservationService(
             ReservationMapper reservationMapper,
             ReservationGuestMapper reservationGuestMapper,
             RoomMapper roomMapper,
-            RoomPriceRuleMapper priceRuleMapper) {
+            RoomPriceRuleMapper priceRuleMapper,
+            CustomerService customerService,
+            ReservationFinanceMapper financeMapper) {
         this.reservationMapper = reservationMapper;
         this.reservationGuestMapper = reservationGuestMapper;
         this.roomMapper = roomMapper;
         this.priceRuleMapper = priceRuleMapper;
+        this.customerService = customerService;
+        this.financeMapper = financeMapper;
     }
 
     @Transactional(readOnly = true)
@@ -116,8 +123,8 @@ public class ReservationService {
         List<Reservation> dueReservations = reservationMapper.findDueCheckouts();
         for (Reservation dueReservation : dueReservations) {
             reservationMapper.markCheckedOut(dueReservation.getId());
-            // チェックアウト済みにした客室は「空室 + 清掃待ち」に戻す。
-            roomMapper.updateStatuses(dueReservation.getRoomId(), "vacant", "needs_cleaning");
+            // 同日に次の宿泊が始まっている場合を考慮し、現在日の予約状況から客室状態を再計算する。
+            updateRoomAfterReservationRelease(dueReservation, "needs_cleaning");
         }
     }
 
@@ -154,9 +161,13 @@ public class ReservationService {
             reservation.setReservationForm("公式");
         }
 
+        // 予約の氏名・連絡先は当時のスナップショットとして残し、顧客IDで再来履歴を結ぶ。
+        customerService.resolveForReservation(reservation);
+
         // 料金は宿泊日ごとに単価を積み上げて算出し、予約保存時点で確定する。
         reservation.setTotalAmount(calculateTotalAmount(reservation, room));
         reservationMapper.insert(reservation);
+        financeMapper.insertEmpty(reservation.getId());
         // 予約本体のID確定後に同行者を保存する。同行者は予約人数から1名分を差し引いて管理する。
         saveCompanions(
                 reservation.getId(),
@@ -166,8 +177,95 @@ public class ReservationService {
                 companionGenders,
                 companionAges,
                 companionPhones);
-        // 予約成立後は客室を予約済みに切り替える。
-        roomMapper.updateStatuses(room.getId(), "reserved", room.getCleaningStatus());
+        // 将来予約で現在の物理状態を上書きしない。当日予約だけを予約済みに切り替える。
+        if (reservation.getCheckInDate().equals(currentDate())) {
+            roomMapper.updateStatuses(room.getId(), "reserved", room.getCleaningStatus());
+        }
+    }
+
+    /**
+     * チェックイン前の予約を編集し、重複・定員・料金・同行者・顧客関連を再検証する。
+     */
+    @Transactional
+    public void update(
+            Integer id,
+            Reservation reservation,
+            boolean noContactInfo,
+            List<String> companionNames,
+            List<String> companionKanas,
+            List<String> companionGenders,
+            List<Integer> companionAges,
+            List<String> companionPhones) {
+        Reservation existing = reservationMapper.findById(id);
+        if (existing == null)
+            throw new IllegalArgumentException("予約が見つかりません。");
+        if (!"booked".equals(existing.getReservationStatus())) {
+            throw new IllegalArgumentException("予約中の予約のみ編集できます。");
+        }
+        reservation.setId(id);
+        reservation.setReservationNo(existing.getReservationNo());
+        reservation.setReservationStatus(existing.getReservationStatus());
+        reservation.setPaymentStatus(existing.getPaymentStatus());
+        validateReservation(reservation, noContactInfo);
+        validateCompanions(reservation, companionNames);
+        validateCompanionContacts(reservation, companionKanas, companionPhones);
+        Room room = roomMapper.findByIdForUpdate(reservation.getRoomId());
+        validateRoomForReservation(reservation, room);
+        if (reservationMapper.countOverlappingExcludingId(
+                reservation.getRoomId(), reservation.getCheckInDate(), reservation.getCheckOutDate(), id) > 0) {
+            throw new IllegalArgumentException("指定期間はすでに予約されています。");
+        }
+        customerService.resolveForReservation(reservation);
+        reservation.setTotalAmount(calculateTotalAmount(reservation, room));
+        if (reservationMapper.update(reservation) == 0)
+            throw new IllegalArgumentException("予約を更新できません。");
+        reservationGuestMapper.deleteByReservationId(id);
+        saveCompanions(id, reservation.getGuestCount(), companionNames, companionKanas,
+                companionGenders, companionAges, companionPhones);
+
+        // 当日の客室または日付を変更した場合だけ、旧客室と新客室の物理状態を再計算する。
+        if (!existing.getRoomId().equals(reservation.getRoomId())
+                && !existing.getCheckInDate().isAfter(currentDate())) {
+            updateRoomAfterReservationRelease(existing, "cleaned");
+        }
+        if (reservation.getCheckInDate().equals(currentDate())) {
+            roomMapper.updateStatuses(reservation.getRoomId(), "reserved", room.getCleaningStatus());
+        }
+    }
+
+    /** 当日到着した予約を滞在中へ進め、客室を使用中にする。 */
+    @Transactional
+    public void checkIn(Integer id) {
+        Reservation reservation = requireReservation(id);
+        if (!"booked".equals(reservation.getReservationStatus())) {
+            throw new IllegalArgumentException("予約中の予約のみチェックインできます。");
+        }
+        LocalDate today = currentDate();
+        if (today.isBefore(reservation.getCheckInDate()) || !today.isBefore(reservation.getCheckOutDate())) {
+            throw new IllegalArgumentException("宿泊期間内の予約のみチェックインできます。");
+        }
+        Room room = roomMapper.findByIdForUpdate(reservation.getRoomId());
+        if (room == null || !Boolean.TRUE.equals(room.getActive())) {
+            throw new IllegalArgumentException("利用可能な部屋が見つかりません。");
+        }
+        if (!"cleaned".equals(room.getCleaningStatus())) {
+            throw new IllegalArgumentException("清掃済みの部屋のみチェックインできます。");
+        }
+        if (reservationMapper.markCheckedIn(id) == 0)
+            throw new IllegalArgumentException("チェックインできません。");
+        roomMapper.updateStatuses(reservation.getRoomId(), "occupied", "cleaned");
+    }
+
+    /** 滞在中予約を退房済みにし、客室を清掃待ちへ戻す。 */
+    @Transactional
+    public void checkOut(Integer id) {
+        Reservation reservation = requireReservation(id);
+        if (!"checked_in".equals(reservation.getReservationStatus())) {
+            throw new IllegalArgumentException("滞在中の予約のみチェックアウトできます。");
+        }
+        if (reservationMapper.markCheckedOut(id) == 0)
+            throw new IllegalArgumentException("チェックアウトできません。");
+        updateRoomAfterReservationRelease(reservation, "needs_cleaning");
     }
 
     @Transactional(readOnly = true)
@@ -189,19 +287,37 @@ public class ReservationService {
      */
     @Transactional
     public void updateReservationStatus(Integer id, String reservationStatus) {
-        // 予約状態の変更は、予約本体と客室状態の整合を必ずセットで保つ。
         requireAllowed(reservationStatus, RESERVATION_STATUSES, "予約状態が正しくありません。");
 
         Reservation reservation = reservationMapper.findById(id);
         if (reservation == null) {
             throw new IllegalArgumentException("予約が見つかりません。");
         }
+        validateStatusTransition(reservation.getReservationStatus(), reservationStatus);
+        if ("checked_out".equals(reservationStatus) && reservation.getCheckInDate().isAfter(currentDate())) {
+            throw new IllegalArgumentException("チェックイン前の予約はチェックアウトできません。");
+        }
+
+        if ("booked".equals(reservationStatus)) {
+            // 取消済み予約を戻す場合も新規登録と同じ競合・客室条件を再確認する。
+            Room room = roomMapper.findByIdForUpdate(reservation.getRoomId());
+            validateRoomForReservation(reservation, room);
+            if (reservationMapper.countOverlappingExcludingId(
+                    reservation.getRoomId(),
+                    reservation.getCheckInDate(),
+                    reservation.getCheckOutDate(),
+                    reservation.getId()) > 0) {
+                throw new IllegalArgumentException("指定期間はすでに予約されています。");
+            }
+        }
+
         if (reservationMapper.updateReservationStatus(id, reservationStatus) == 0) {
             throw new IllegalArgumentException("予約が見つかりません。");
         }
         if ("booked".equals(reservationStatus)) {
-            // 予約中に戻す場合は、客室を予約済みに復帰させる。
-            roomMapper.updateStatuses(reservation.getRoomId(), "reserved", "cleaned");
+            if (reservation.getCheckInDate().equals(currentDate())) {
+                roomMapper.updateStatuses(reservation.getRoomId(), "reserved", "cleaned");
+            }
         }
         if ("checked_out".equals(reservationStatus)) {
             // 他の予約中データが残る場合は、客室を空室に戻さず予約済み状態を維持する。
@@ -227,11 +343,17 @@ public class ReservationService {
     @Transactional
     public void cancel(Integer id) {
         Reservation reservation = reservationMapper.findById(id);
+        if (reservation == null) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+        if (!"booked".equals(reservation.getReservationStatus())) {
+            throw new IllegalArgumentException("予約中の予約のみ取消できます。");
+        }
         if (reservationMapper.cancel(id) == 0) {
             throw new IllegalArgumentException("予約が見つかりません。");
         }
-        if (reservation != null) {
-            // 取消済みにした客室は、他の予約がなければ通常の空室・清掃済み状態へ戻す。
+        if (!reservation.getCheckInDate().isAfter(currentDate())) {
+            // 当日以前の予約だけが現在の客室状態に影響する。
             updateRoomAfterReservationRelease(reservation, "cleaned");
         }
     }
@@ -271,14 +393,22 @@ public class ReservationService {
     }
 
     private void updateRoomAfterReservationRelease(Reservation reservation, String cleaningStatusWhenVacant) {
-        int otherBookedReservations = reservationMapper.countOtherBookedByRoomId(
+        int otherBookedReservations = reservationMapper.countOtherBookedByRoomIdOnDate(
                 reservation.getRoomId(),
-                reservation.getId());
+                reservation.getId(),
+                currentDate());
         if (otherBookedReservations > 0) {
             roomMapper.updateStatuses(reservation.getRoomId(), "reserved", "cleaned");
             return;
         }
         roomMapper.updateStatuses(reservation.getRoomId(), "vacant", cleaningStatusWhenVacant);
+    }
+
+    private Reservation requireReservation(Integer id) {
+        Reservation reservation = reservationMapper.findById(id);
+        if (reservation == null)
+            throw new IllegalArgumentException("予約が見つかりません。");
+        return reservation;
     }
 
     private String nextReservationNo() {
@@ -341,18 +471,33 @@ public class ReservationService {
     }
 
     private void validateRoomForReservation(Reservation reservation, Room room) {
-        // 予約対象の客室は、営業中・空室・清掃済みの3条件をすべて満たす必要がある。
         if (room == null || !Boolean.TRUE.equals(room.getActive())) {
             throw new IllegalArgumentException("利用可能な部屋を選択してください。");
         }
-        if (!"vacant".equals(room.getOccupancyStatus())) {
-            throw new IllegalArgumentException("空室の部屋のみ予約できます。");
-        }
-        if (!"cleaned".equals(room.getCleaningStatus())) {
-            throw new IllegalArgumentException("清掃済みの部屋のみ予約できます。");
+        // 現在の物理状態は当日予約だけに適用し、将来予約は宿泊期間の重複で判定する。
+        if (reservation.getCheckInDate().equals(currentDate())) {
+            if (!"vacant".equals(room.getOccupancyStatus())) {
+                throw new IllegalArgumentException("当日予約は空室の部屋のみ登録できます。");
+            }
+            if (!"cleaned".equals(room.getCleaningStatus())) {
+                throw new IllegalArgumentException("当日予約は清掃済みの部屋のみ登録できます。");
+            }
         }
         if (reservation.getGuestCount() > room.getCapacity()) {
             throw new IllegalArgumentException("宿泊人数が部屋の定員を超えています。");
+        }
+    }
+
+    private void validateStatusTransition(String currentStatus, String nextStatus) {
+        if (currentStatus.equals(nextStatus)) {
+            throw new IllegalArgumentException("予約状態はすでに更新済みです。");
+        }
+        boolean allowed = ("cancelled".equals(currentStatus) && "booked".equals(nextStatus))
+                || ("booked".equals(currentStatus) && "checked_in".equals(nextStatus))
+                || ("booked".equals(currentStatus) && "checked_out".equals(nextStatus))
+                || ("checked_in".equals(currentStatus) && "checked_out".equals(nextStatus));
+        if (!allowed) {
+            throw new IllegalArgumentException("指定された予約状態へは変更できません。");
         }
     }
 

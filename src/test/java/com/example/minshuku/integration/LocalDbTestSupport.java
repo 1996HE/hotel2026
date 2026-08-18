@@ -24,15 +24,24 @@ abstract class LocalDbTestSupport {
 
     protected void resetTables() {
         // 各テストを独立させるため、関連テーブルとシーケンスを初期化する。
+        jdbcTemplate.execute("DELETE FROM reservation_finances");
         jdbcTemplate.execute("DELETE FROM reservation_guests");
         jdbcTemplate.execute("DELETE FROM room_price_rules");
         jdbcTemplate.execute("DELETE FROM reservations");
+        jdbcTemplate.execute("DELETE FROM customers");
+        jdbcTemplate.execute("DELETE FROM admin_users");
+        jdbcTemplate.execute("DELETE FROM backup_history");
         jdbcTemplate.execute("DELETE FROM rooms");
+        jdbcTemplate.execute("ALTER TABLE reservation_finances ALTER COLUMN id RESTART WITH 1");
         jdbcTemplate.execute("ALTER TABLE reservation_guests ALTER COLUMN id RESTART WITH 1");
         jdbcTemplate.execute("ALTER TABLE room_price_rules ALTER COLUMN id RESTART WITH 1");
         jdbcTemplate.execute("ALTER TABLE reservations ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE customers ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE admin_users ALTER COLUMN id RESTART WITH 1");
+        jdbcTemplate.execute("ALTER TABLE backup_history ALTER COLUMN id RESTART WITH 1");
         jdbcTemplate.execute("ALTER TABLE rooms ALTER COLUMN id RESTART WITH 1");
         jdbcTemplate.execute("ALTER SEQUENCE reservation_no_seq RESTART WITH 1");
+        jdbcTemplate.execute("ALTER SEQUENCE customer_no_seq RESTART WITH 1");
     }
 
     protected void seedRooms() {

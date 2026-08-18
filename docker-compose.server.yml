@@ -1,0 +1,60 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/minshuku
+      DB_USERNAME: minshuku
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      THYMELEAF_CACHE: "true"
+      BACKUP_DIRECTORY: /backups
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
+    expose:
+      - "8000"
+    volumes:
+      - ${BACKUP_DIRECTORY:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/jukai-internal/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: minshuku
+      POSTGRES_USER: minshuku
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - minshuku-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minshuku -d minshuku"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  minshuku-postgres-data:
+  caddy-data:
+  caddy-config:

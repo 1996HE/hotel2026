@@ -6,11 +6,15 @@ services: # 定义本地开发需要启动的服务集合。
       DB_USERNAME: minshuku
       DB_PASSWORD: ${DB_PASSWORD:-minshuku}
       THYMELEAF_CACHE: "true"
+      BACKUP_DIRECTORY: /backups
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ${BACKUP_DIRECTORY:-./backups}:/backups
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/jukai-internal/actuator/health/readiness"]
       interval: 15s
@@ -24,7 +28,7 @@ services: # 定义本地开发需要启动的服务集合。
       POSTGRES_USER: minshuku # 设置默认数据库用户。
       POSTGRES_PASSWORD: ${DB_PASSWORD:-minshuku} # 与应用共用同一数据库密码。
     ports: # 定义宿主机和容器端口映射。
-      - "55432:5432" # 将本机 55432 映射到容器 PostgreSQL 5432。
+      - "127.0.0.1:55432:5432" # 仅将本机 55432 映射到容器 PostgreSQL 5432。
     volumes: # 定义数据库持久化卷。
       - minshuku-postgres-data:/var/lib/postgresql/data # 将数据库文件保存到 Docker 卷。
     healthcheck:

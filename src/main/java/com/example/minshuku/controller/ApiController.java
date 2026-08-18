@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 /**
  * React フロントエンドから利用する JSON API。
@@ -156,6 +157,32 @@ public class ApiController {
                 request.companionAges(),
                 request.companionPhones());
         return new MessageResponse("予約を登録しました。");
+    }
+
+    @PutMapping("/reservations/{id}")
+    public MessageResponse updateReservation(@PathVariable Integer id, @RequestBody ReservationCreateRequest request) {
+        reservationService.update(
+                id,
+                request.reservation(),
+                request.noPhoneInfo() && request.noEmailInfo(),
+                request.companionNames(),
+                request.companionKanas(),
+                request.companionGenders(),
+                request.companionAges(),
+                request.companionPhones());
+        return new MessageResponse("予約を更新しました。");
+    }
+
+    @PostMapping("/reservations/{id}/check-in")
+    public MessageResponse checkIn(@PathVariable Integer id) {
+        reservationService.checkIn(id);
+        return new MessageResponse("チェックインしました。");
+    }
+
+    @PostMapping("/reservations/{id}/check-out")
+    public MessageResponse checkOut(@PathVariable Integer id) {
+        reservationService.checkOut(id);
+        return new MessageResponse("チェックアウトしました。");
     }
 
     @PostMapping("/reservations/{id}/payment")

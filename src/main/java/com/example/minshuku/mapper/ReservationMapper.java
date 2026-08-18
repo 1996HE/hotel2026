@@ -83,6 +83,9 @@ public interface ReservationMapper {
      */
     int insert(Reservation reservation);
 
+    /** 検証済みの予約内容を更新する。 */
+    int update(Reservation reservation);
+
     /**
      * 同一客室・重複宿泊期間の既存予約数を取得し、二重予約を防ぐ。
      */
@@ -92,6 +95,15 @@ public interface ReservationMapper {
             @Param("checkOutDate") LocalDate checkOutDate);
 
     /**
+     * 状態復元対象自身を除外し、同一客室・重複宿泊期間の既存予約数を取得する。
+     */
+    int countOverlappingExcludingId(
+            @Param("roomId") Integer roomId,
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate,
+            @Param("excludedReservationId") Integer excludedReservationId);
+
+    /**
      * ダッシュボード集計用の予約中件数を取得する。
      */
     int countBooked();
@@ -99,9 +111,10 @@ public interface ReservationMapper {
     /**
      * 同一客室に残る他の予約中件数を取得し、客室状態の巻き戻し可否に使う。
      */
-    int countOtherBookedByRoomId(
+    int countOtherBookedByRoomIdOnDate(
             @Param("roomId") Integer roomId,
-            @Param("excludedReservationId") Integer excludedReservationId);
+            @Param("excludedReservationId") Integer excludedReservationId,
+            @Param("stayDate") LocalDate stayDate);
 
     /**
      * 入金状態のみを更新する。
@@ -117,6 +130,9 @@ public interface ReservationMapper {
      * 期限到来予約をチェックアウト済みにする。
      */
     int markCheckedOut(@Param("id") Integer id);
+
+    /** 当日予約をチェックイン済みにし、実績時刻を記録する。 */
+    int markCheckedIn(@Param("id") Integer id);
 
     /**
      * 予約を取消済みにする。

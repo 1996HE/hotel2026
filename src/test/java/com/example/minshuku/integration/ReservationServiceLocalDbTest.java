@@ -64,7 +64,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
         assertThat(saved.getReservationStatus()).isEqualTo("booked");
         assertThat(saved.getPaymentStatus()).isEqualTo("unpaid");
         assertThat(saved.getTotalAmount()).isEqualByComparingTo("48000");
-        assertThat(roomMapper.findById(bookableRoomId).getOccupancyStatus()).isEqualTo("reserved");
+        assertThat(roomMapper.findById(bookableRoomId).getOccupancyStatus()).isEqualTo("vacant");
         assertThat(reservationService.findRecent()).hasSize(1);
         assertThat(reservationService.findRecent().get(0).getCompanionSummary()).contains("佐藤花子", "080-0000-0000");
     }
@@ -118,12 +118,12 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_04 create Rejects Room That Is Not Vacant")
     @Test
     void createRejectsRoomThatIsNotVacant() {
-        Reservation reservation = baseReservation(occupiedRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12),
-                2);
+        LocalDate today = reservationService.currentDate();
+        Reservation reservation = baseReservation(occupiedRoomId, today, today.plusDays(2), 2);
         assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
                 List.of("女性"), List.of(28), List.of("080-0000-0000")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("空室の部屋のみ予約できます。");
+                .hasMessage("当日予約は空室の部屋のみ登録できます。");
     }
 
     /**
@@ -135,11 +135,12 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_05 create Rejects Room That Is Not Cleaned")
     @Test
     void createRejectsRoomThatIsNotCleaned() {
-        Reservation reservation = baseReservation(dirtyRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 2);
+        LocalDate today = reservationService.currentDate();
+        Reservation reservation = baseReservation(dirtyRoomId, today, today.plusDays(2), 2);
         assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
                 List.of("女性"), List.of(28), List.of("080-0000-0000")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("清掃済みの部屋のみ予約できます。");
+                .hasMessage("当日予約は清掃済みの部屋のみ登録できます。");
     }
 
     /**
@@ -305,7 +306,8 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_13 update Checkout Cleaning Status Moves Room Vacant When Cleaned")
     @Test
     void updateCheckoutCleaningStatusMovesRoomVacantWhenCleaned() {
-        Reservation reservation = baseReservation(spareRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 2);
+        LocalDate today = reservationService.currentDate();
+        Reservation reservation = baseReservation(spareRoomId, today, today.plusDays(2), 2);
         reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28),
                 List.of("080-0000-0000"));
         reservationService.updateReservationStatus(reservation.getId(), "checked_out");
@@ -345,7 +347,8 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
         reservationService.create(cancelled, false, List.of(), List.of(), List.of(), List.of(), List.of());
         reservationService.cancel(cancelled.getId());
 
-        Reservation checkedOut = baseReservation(ruleRoomId, LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 16), 1);
+        LocalDate today = reservationService.currentDate();
+        Reservation checkedOut = baseReservation(ruleRoomId, today, today.plusDays(1), 1);
         reservationService.create(checkedOut, false, List.of(), List.of(), List.of(), List.of(), List.of());
         reservationService.updateReservationStatus(checkedOut.getId(), "checked_out");
 
@@ -420,6 +423,69 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
         }
         printComparison("異常系：宿泊人数が定員超過", "宿泊人数が部屋の定員を超えています。", actualMessage);
         assertThat(actualMessage).isEqualTo("宿泊人数が部屋の定員を超えています。");
+    }
+
+    @DisplayName("test_17 create Allows Non Overlapping Future Reservations For Same Room")
+    @Test
+    void createAllowsNonOverlappingFutureReservationsForSameRoom() {
+        Reservation first = baseReservation(
+                bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 1);
+        reservationService.create(first, false, List.of(), List.of(), List.of(), List.of(), List.of());
+
+        Reservation second = baseReservation(
+                bookableRoomId, LocalDate.of(2026, 9, 12), LocalDate.of(2026, 9, 14), 1);
+        reservationService.create(second, false, List.of(), List.of(), List.of(), List.of(), List.of());
+
+        assertThat(reservationService.countBooked()).isEqualTo(2);
+        assertThat(roomMapper.findById(bookableRoomId).getOccupancyStatus()).isEqualTo("vacant");
+    }
+
+    @DisplayName("test_18 sync Due Checkouts Keeps Room Reserved For Same Day Following Stay")
+    @Test
+    void syncDueCheckoutsKeepsRoomReservedForSameDayFollowingStay() {
+        LocalDate today = reservationService.currentDate();
+        int dueReservationId = insertReservation(
+                spareRoomId,
+                "R000001",
+                today.minusDays(2),
+                today,
+                "山田太郎",
+                "ヤマダタロウ",
+                "男性",
+                30,
+                "090-0000-0000",
+                "first@example.com",
+                1,
+                "公式",
+                "paid",
+                "booked",
+                java.math.BigDecimal.valueOf(12000),
+                "退房対象");
+        insertReservation(
+                spareRoomId,
+                "R000002",
+                today,
+                today.plusDays(1),
+                "佐藤花子",
+                "サトウハナコ",
+                "女性",
+                28,
+                "080-0000-0000",
+                "second@example.com",
+                1,
+                "公式",
+                "paid",
+                "booked",
+                java.math.BigDecimal.valueOf(12000),
+                "当日後続予約");
+        roomMapper.updateStatuses(spareRoomId, "reserved", "cleaned");
+
+        reservationService.syncDueCheckouts();
+
+        assertThat(reservationMapper.findById(dueReservationId).getReservationStatus()).isEqualTo("checked_out");
+        Room room = roomMapper.findById(spareRoomId);
+        assertThat(room.getOccupancyStatus()).isEqualTo("reserved");
+        assertThat(room.getCleaningStatus()).isEqualTo("cleaned");
     }
 
     private Reservation baseReservation(Integer roomId, LocalDate checkInDate, LocalDate checkOutDate, int guestCount) {

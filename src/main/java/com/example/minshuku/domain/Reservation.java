@@ -12,6 +12,7 @@ public class Reservation {
     private Integer id;
     private String reservationNo;
     private Integer roomId;
+    private Integer customerId;
 
     // 一覧表示用に客室マスタから結合して取得する表示項目。
     private String roomNumber;
@@ -20,6 +21,8 @@ public class Reservation {
     // 宿泊期間。チェックアウト日は宿泊日数計算の終端として扱う。
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
+    private OffsetDateTime checkedInAt;
+    private OffsetDateTime checkedOutAt;
 
     // 代表宿泊者の基本情報。
     private String guestName;
@@ -71,6 +74,14 @@ public class Reservation {
         this.roomId = roomId;
     }
 
+    public Integer getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
+    }
+
     public String getRoomNumber() {
         return roomNumber;
     }
@@ -101,6 +112,22 @@ public class Reservation {
 
     public void setCheckOutDate(LocalDate checkOutDate) {
         this.checkOutDate = checkOutDate;
+    }
+
+    public OffsetDateTime getCheckedInAt() {
+        return checkedInAt;
+    }
+
+    public void setCheckedInAt(OffsetDateTime checkedInAt) {
+        this.checkedInAt = checkedInAt;
+    }
+
+    public OffsetDateTime getCheckedOutAt() {
+        return checkedOutAt;
+    }
+
+    public void setCheckedOutAt(OffsetDateTime checkedOutAt) {
+        this.checkedOutAt = checkedOutAt;
     }
 
     public String getGuestName() {
@@ -189,6 +216,7 @@ public class Reservation {
     public String getReservationStatusLabel() {
         return switch (reservationStatus) {
             case "cancelled" -> "取消済";
+            case "checked_in" -> "滞在中";
             case "checked_out" -> "チェックアウト完了待清掃";
             default -> "予約済";
         };
@@ -198,7 +226,12 @@ public class Reservation {
      * 支払状況は UI 上では二値の表示に寄せる。
      */
     public String getPaymentStatusLabel() {
-        return "paid".equals(paymentStatus) ? "支払済" : "未払い";
+        return switch (paymentStatus) {
+            case "paid" -> "支払済";
+            case "partially_refunded" -> "一部返金";
+            case "refunded" -> "全額返金";
+            default -> "未払い";
+        };
     }
 
     public String getRoomCleaningStatus() {
