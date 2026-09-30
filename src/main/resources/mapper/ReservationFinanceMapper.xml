@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.minshuku.mapper.ReservationFinanceMapper">
+  <resultMap id="FinanceResultMap" type="com.example.minshuku.domain.ReservationFinance">
+    <id property="id" column="id" />
+    <result property="reservationId" column="reservation_id" />
+    <result property="receivedAmount" column="received_amount" />
+    <result property="paymentMethod" column="payment_method" />
+    <result property="receivedAt" column="received_at" />
+    <result property="refundAmount" column="refund_amount" />
+    <result property="refundedAt" column="refunded_at" />
+    <result property="createdAt" column="created_at" />
+    <result property="updatedAt" column="updated_at" />
+  </resultMap>
+
+  <select id="findByReservationId" resultMap="FinanceResultMap">
+    SELECT id, reservation_id, received_amount, payment_method, received_at,
+           refund_amount, refunded_at, created_at, updated_at
+    FROM reservation_finances WHERE reservation_id=#{reservationId}
+  </select>
+
+  <insert id="insertEmpty">
+    INSERT INTO reservation_finances(reservation_id)
+    VALUES(#{reservationId})
+  </insert>
+
+  <update id="updatePayment">
+    UPDATE reservation_finances
+    SET received_amount=#{amount}, payment_method=#{method}, received_at=#{receivedAt},
+        updated_at=now()
+    WHERE reservation_id=#{reservationId}
+  </update>
+
+  <update id="updateRefund">
+    UPDATE reservation_finances
+    SET refund_amount=#{amount}, refunded_at=#{refundedAt}, updated_at=now()
+    WHERE reservation_id=#{reservationId}
+  </update>
+
+  <select id="findReportRows" resultType="com.example.minshuku.mapper.ReservationFinanceMapper$FinanceReportRow">
+    SELECT r.id AS reservationId, r.reservation_no AS reservationNo, r.guest_name AS guestName,
+           r.guest_phone AS guestPhone, rooms.room_number AS roomNumber, r.check_in_date AS checkInDate,
+           r.check_out_date AS checkOutDate, r.checked_in_at AS checkedInAt,
+           r.checked_out_at AS checkedOutAt, r.guest_count AS guestCount, r.total_amount AS totalAmount,
+           COALESCE(f.received_amount, 0) AS receivedAmount,
+           COALESCE(f.refund_amount, 0) AS refundAmount,
+           f.payment_method AS paymentMethod, f.received_at AS receivedAt,
+           f.refunded_at AS refundedAt, r.reservation_status AS reservationStatus,
+           r.payment_status AS paymentStatus
+    FROM reservations r
+    JOIN rooms ON rooms.id = r.room_id
+    LEFT JOIN reservation_finances f ON f.reservation_id = r.id
+    WHERE r.check_in_date &gt;= #{startDate} AND r.check_in_date &lt;= #{endDate}
+    ORDER BY r.check_in_date, r.id
+  </select>
+</mapper>

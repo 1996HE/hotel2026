@@ -5,7 +5,14 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
   {
-    ignores: ["target/**", "node_modules/**", "coverage/**", "src/main/resources/static/js/app.js", "docs/**/*.xlsx"],
+    ignores: [
+      "target/**",
+      "node_modules/**",
+      "coverage/**",
+      "src/main/resources/static/js/app.js",
+      "src/main/resources/static/js/guest.js",
+      "docs/**/*.xlsx",
+    ],
   },
   js.configs.recommended,
   {

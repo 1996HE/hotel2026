@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.minshuku.mapper.PublicBookingMapper">
+  <resultMap id="PublicBookingResultMap" type="com.example.minshuku.domain.PublicBookingRequest">
+    <id property="id" column="id" />
+    <result property="requestNo" column="request_no" />
+    <result property="locale" column="locale" />
+    <result property="status" column="status" />
+    <result property="checkInDate" column="check_in_date" />
+    <result property="checkOutDate" column="check_out_date" />
+    <result property="leadName" column="lead_name" />
+    <result property="leadEmail" column="lead_email" />
+    <result property="leadPhone" column="lead_phone" />
+    <result property="country" column="country" />
+    <result property="guestCount" column="guest_count" />
+    <result property="totalAmount" column="total_amount" />
+    <result property="notes" column="notes" />
+    <result property="cancelTokenHash" column="cancel_token_hash" />
+    <result property="holdExpiresAt" column="hold_expires_at" />
+    <result property="confirmedAt" column="confirmed_at" />
+    <result property="rejectedAt" column="rejected_at" />
+    <result property="cancelledAt" column="cancelled_at" />
+    <result property="rejectionReason" column="rejection_reason" />
+    <result property="cancellationReason" column="cancellation_reason" />
+    <result property="createdAt" column="created_at" />
+    <result property="updatedAt" column="updated_at" />
+  </resultMap>
+
+  <select id="nextRequestSequence" resultType="long">
+    SELECT nextval('public_booking_request_no_seq')
+  </select>
+
+  <insert id="insert" parameterType="com.example.minshuku.domain.PublicBookingRequest" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO public_booking_requests (
+      request_no, locale, status, check_in_date, check_out_date,
+      lead_name, lead_email, lead_phone, country, guest_count,
+      total_amount, notes, cancel_token_hash, hold_expires_at
+    ) VALUES (
+      #{requestNo}, #{locale}, #{status}, #{checkInDate}, #{checkOutDate},
+      #{leadName}, #{leadEmail}, #{leadPhone}, #{country}, #{guestCount},
+      #{totalAmount}, #{notes}, #{cancelTokenHash}, #{holdExpiresAt}
+    )
+  </insert>
+
+  <select id="findByIdForUpdate" resultMap="PublicBookingResultMap">
+    SELECT * FROM public_booking_requests WHERE id = #{id} FOR UPDATE
+  </select>
+
+  <select id="findById" resultMap="PublicBookingResultMap">
+    SELECT * FROM public_booking_requests WHERE id = #{id}
+  </select>
+
+  <select id="findByTokenHashForUpdate" resultMap="PublicBookingResultMap">
+    SELECT * FROM public_booking_requests WHERE cancel_token_hash = #{tokenHash} FOR UPDATE
+  </select>
+
+  <select id="findByCredentials" resultMap="PublicBookingResultMap">
+    SELECT *
+    FROM public_booking_requests
+    WHERE request_no = #{requestNo}
+      AND LOWER(lead_email) = #{email}
+  </select>
+
+  <select id="findByCredentialsForUpdate" resultMap="PublicBookingResultMap">
+    SELECT *
+    FROM public_booking_requests
+    WHERE request_no = #{requestNo}
+      AND LOWER(lead_email) = #{email}
+    FOR UPDATE
+  </select>
+
+  <select id="findPending" resultMap="PublicBookingResultMap">
+    SELECT * FROM public_booking_requests
+    WHERE status = 'pending'
+    ORDER BY hold_expires_at, id
+  </select>
+
+  <select id="findExpiredPendingForUpdate" resultMap="PublicBookingResultMap">
+    SELECT * FROM public_booking_requests
+    WHERE status = 'pending' AND hold_expires_at &lt;= #{now}
+    ORDER BY id
+    FOR UPDATE
+  </select>
+
+  <select id="findReservations" resultMap="com.example.minshuku.mapper.ReservationMapper.ReservationResultMap">
+    SELECT
+      r.id, r.reservation_no, r.room_id, r.customer_id, r.booking_request_id,
+      rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status,
+      r.check_in_date, r.check_out_date, r.checked_in_at, r.checked_out_at,
+      r.guest_name, r.guest_kana, r.guest_gender, r.guest_age,
+      r.guest_phone, r.guest_email, r.guest_count, r.reservation_form,
+      r.payment_status, r.reservation_status, r.total_amount, r.note,
+      r.cancellation_reason, r.cancelled_by, r.cancelled_at,
+      COALESCE(string_agg(rg.guest_name || '（' || COALESCE(CAST(rg.guest_age AS varchar), '未入力') || '歳）', E'\n' ORDER BY rg.id), '') AS companion_summary,
+      r.created_at, r.updated_at
+    FROM reservations r
+      JOIN rooms ON rooms.id = r.room_id
+      LEFT JOIN reservation_guests rg ON rg.reservation_id = r.id
+    WHERE r.booking_request_id = #{bookingRequestId}
+    GROUP BY r.id, rooms.room_number, rooms.room_name, rooms.cleaning_status
+    ORDER BY rooms.room_number, r.id
+  </select>
+
+  <update id="updateStatus">
+    UPDATE public_booking_requests
+    SET status = #{status},
+        rejection_reason = CASE WHEN #{status} = 'rejected' THEN #{reason} ELSE rejection_reason END,
+        confirmed_at = CASE WHEN #{status} = 'confirmed' THEN #{now} ELSE confirmed_at END,
+        rejected_at = CASE WHEN #{status} = 'rejected' THEN #{now} ELSE rejected_at END,
+        cancelled_at = CASE WHEN #{status} = 'cancelled' THEN #{now} ELSE cancelled_at END,
+        cancellation_reason = CASE WHEN #{status} = 'cancelled' THEN #{reason} ELSE cancellation_reason END,
+        updated_at = #{now}
+    WHERE id = #{id} AND status = #{expectedStatus}
+  </update>
+
+  <update id="updateReservationsStatus">
+    UPDATE reservations
+    SET reservation_status = #{status}, updated_at = now()
+    WHERE booking_request_id = #{bookingRequestId}
+      AND reservation_status = #{expectedStatus}
+  </update>
+
+  <update id="linkCustomer">
+    UPDATE reservations
+    SET customer_id = #{customerId}, updated_at = now()
+    WHERE booking_request_id = #{bookingRequestId}
+  </update>
+
+  <update id="cancelReservations">
+    UPDATE reservations
+    SET reservation_status = 'cancelled', cancellation_reason = #{reason},
+        cancelled_by = #{actor}, cancelled_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE booking_request_id = #{bookingRequestId}
+      AND reservation_status = #{expectedStatus}
+  </update>
+</mapper>

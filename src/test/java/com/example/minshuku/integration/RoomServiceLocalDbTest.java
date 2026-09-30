@@ -165,16 +165,18 @@ class RoomServiceLocalDbTest extends LocalDbTestSupport {
     }
 
     /**
-     * テストケース名：test_08 find Bookable Returns Only Vacant Cleaned Active Rooms
+     * テストケース名：test_08 find Bookable Returns All Active Rooms
      * テスト条件：検索条件、初期データ、期待値を準備する。
      * テスト要望：取得結果が期待する一覧、件数、レスポンス内容と一致すること。
      * テスト結果：期待値と実際値が一致すること。
      */
-    @DisplayName("test_08 find Bookable Returns Only Vacant Cleaned Active Rooms")
+    @DisplayName("test_08 find Bookable Returns All Active Rooms")
     @Test
-    void findBookableReturnsOnlyVacantCleanedActiveRooms() {
+    void findBookableReturnsAllActiveRooms() {
         List<Room> bookableRooms = roomService.findBookable();
-        assertThat(bookableRooms).extracting(Room::getRoomNumber).containsExactly("101", "105", "106");
+        assertThat(bookableRooms)
+                .extracting(Room::getRoomNumber)
+                .containsExactly("101", "102", "103", "105", "106");
     }
 
     /**

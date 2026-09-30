@@ -17,6 +17,7 @@ public class ReservationGuest {
     private String guestKana;
     private String guestGender;
     private Integer guestAge;
+    private String guestCategory;
     private String guestPhone;
 
     // 同行者登録日時。
@@ -68,6 +69,14 @@ public class ReservationGuest {
 
     public void setGuestAge(Integer guestAge) {
         this.guestAge = guestAge;
+    }
+
+    public String getGuestCategory() {
+        return guestCategory;
+    }
+
+    public void setGuestCategory(String guestCategory) {
+        this.guestCategory = guestCategory;
     }
 
     public String getGuestPhone() {

@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.minshuku.config.SecurityConfig;
 import com.example.minshuku.domain.Room;
 import com.example.minshuku.domain.RoomPriceRule;
+import com.example.minshuku.service.AdminUserService;
 import com.example.minshuku.service.RoomPriceRuleService;
 import com.example.minshuku.service.RoomService;
 import com.example.minshuku.support.LoggedTest;
@@ -27,10 +28,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PriceRuleController.class)
 @Import(SecurityConfig.class)
+@WithMockUser(username = "admin")
 @LoggedTest
 @DisplayName("料金管理画面コントローラー")
 /**
@@ -43,6 +46,8 @@ class PriceRuleControllerTest {
     private RoomPriceRuleService priceRuleService;
     @MockBean
     private RoomService roomService;
+    @MockBean
+    private AdminUserService adminUserService;
 
     /**
      * テストケース名：test_01 prices Page Shows Rules Normally

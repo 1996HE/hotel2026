@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.minshuku.mapper.BackupRecordMapper">
+  <resultMap id="BackupRecordResultMap" type="com.example.minshuku.domain.BackupRecord">
+    <id property="id" column="id" />
+    <result property="backupFile" column="backup_file" />
+    <result property="status" column="status" />
+    <result property="fileSizeBytes" column="file_size_bytes" />
+    <result property="message" column="message" />
+    <result property="startedAt" column="started_at" />
+    <result property="completedAt" column="completed_at" />
+  </resultMap>
+
+  <insert id="insert" parameterType="com.example.minshuku.domain.BackupRecord"
+          useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO backup_history(backup_file, status, started_at)
+    VALUES(#{backupFile}, #{status}, #{startedAt})
+  </insert>
+
+  <update id="complete">
+    UPDATE backup_history
+    SET status=#{status}, file_size_bytes=#{fileSizeBytes}, message=#{message}, completed_at=now()
+    WHERE id=#{id}
+  </update>
+
+  <select id="findRecent" resultMap="BackupRecordResultMap">
+    SELECT id, backup_file, status, file_size_bytes, message, started_at, completed_at
+    FROM backup_history
+    ORDER BY started_at DESC, id DESC
+    LIMIT #{limit}
+  </select>
+</mapper>

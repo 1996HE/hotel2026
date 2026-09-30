@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.minshuku.mapper.CustomerMapper">
+  <resultMap id="CustomerResultMap" type="com.example.minshuku.domain.Customer">
+    <id property="id" column="id" />
+    <result property="customerNo" column="customer_no" />
+    <result property="name" column="name" />
+    <result property="phone" column="phone" />
+    <result property="email" column="email" />
+    <result property="stayCount" column="stay_count" />
+    <result property="createdAt" column="created_at" />
+    <result property="updatedAt" column="updated_at" />
+  </resultMap>
+
+  <select id="nextCustomerSequence" resultType="long">
+    SELECT nextval('customer_no_seq')
+  </select>
+
+  <select id="search" resultMap="CustomerResultMap">
+    SELECT c.id, c.customer_no, c.name, c.phone, c.email,
+           COUNT(r.id) AS stay_count, c.created_at, c.updated_at
+    FROM customers c
+    LEFT JOIN reservations r ON r.customer_id = c.id
+    <where>
+      <if test="query != null and query != ''">
+        LOWER(c.name) LIKE LOWER(CONCAT('%', #{query}, '%'))
+        OR c.customer_no LIKE CONCAT('%', #{query}, '%')
+        OR COALESCE(c.phone, '') LIKE CONCAT('%', #{query}, '%')
+        OR LOWER(COALESCE(c.email, '')) LIKE LOWER(CONCAT('%', #{query}, '%'))
+      </if>
+    </where>
+    GROUP BY c.id
+    ORDER BY c.updated_at DESC, c.id DESC
+    LIMIT #{limit}
+  </select>
+
+  <select id="findById" resultMap="CustomerResultMap">
+    SELECT c.id, c.customer_no, c.name, c.phone, c.email,
+           COUNT(r.id) AS stay_count, c.created_at, c.updated_at
+    FROM customers c
+    LEFT JOIN reservations r ON r.customer_id = c.id
+    WHERE c.id = #{id}
+    GROUP BY c.id
+  </select>
+
+  <select id="findExact" resultMap="CustomerResultMap">
+    SELECT c.id, c.customer_no, c.name, c.phone, c.email,
+           COUNT(r.id) AS stay_count, c.created_at, c.updated_at
+    FROM customers c
+    LEFT JOIN reservations r ON r.customer_id = c.id
+    WHERE c.name = #{name}
+      AND c.phone IS NOT DISTINCT FROM #{phone}
+      AND c.email IS NOT DISTINCT FROM #{email}
+    GROUP BY c.id
+    ORDER BY c.id
+    LIMIT 1
+  </select>
+
+  <insert id="insert" parameterType="com.example.minshuku.domain.Customer" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO customers(customer_no, name, phone, email)
+    VALUES(#{customerNo}, #{name}, #{phone}, #{email})
+  </insert>
+
+  <update id="update" parameterType="com.example.minshuku.domain.Customer">
+    UPDATE customers
+    SET name=#{name}, phone=#{phone}, email=#{email}, updated_at=now()
+    WHERE id=#{id}
+  </update>
+
+  <select id="findStayHistory" resultType="com.example.minshuku.domain.Reservation">
+    SELECT r.id, r.reservation_no, r.room_id, r.customer_id,
+           rooms.room_number, rooms.room_name, rooms.cleaning_status AS room_cleaning_status,
+           r.check_in_date, r.check_out_date, r.checked_in_at, r.checked_out_at,
+           r.guest_name, r.guest_kana, r.guest_gender, r.guest_age, r.guest_phone, r.guest_email,
+           r.guest_count, r.reservation_form, r.payment_status, r.reservation_status,
+           r.total_amount, r.note, '' AS companion_summary, r.created_at, r.updated_at
+    FROM reservations r
+    JOIN rooms ON rooms.id = r.room_id
+    WHERE r.customer_id = #{customerId}
+    ORDER BY r.check_in_date DESC, r.id DESC
+  </select>
+</mapper>

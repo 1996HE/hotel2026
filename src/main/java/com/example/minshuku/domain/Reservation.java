@@ -12,6 +12,8 @@ public class Reservation {
     private Integer id;
     private String reservationNo;
     private Integer roomId;
+    private Integer customerId;
+    private Integer bookingRequestId;
 
     // 一覧表示用に客室マスタから結合して取得する表示項目。
     private String roomNumber;
@@ -20,12 +22,15 @@ public class Reservation {
     // 宿泊期間。チェックアウト日は宿泊日数計算の終端として扱う。
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
+    private OffsetDateTime checkedInAt;
+    private OffsetDateTime checkedOutAt;
 
     // 代表宿泊者の基本情報。
     private String guestName;
     private String guestKana;
     private String guestGender;
     private Integer guestAge;
+    private String guestCategory;
     private String guestPhone;
     private String guestEmail;
     private Integer guestCount;
@@ -39,6 +44,9 @@ public class Reservation {
     // 登録時点で確定した宿泊金額と業務メモ。
     private BigDecimal totalAmount;
     private String note;
+    private String cancellationReason;
+    private String cancelledBy;
+    private OffsetDateTime cancelledAt;
 
     // 同行者明細を一覧表示向けに集約したテキスト。
     private String companionSummary;
@@ -69,6 +77,22 @@ public class Reservation {
 
     public void setRoomId(Integer roomId) {
         this.roomId = roomId;
+    }
+
+    public Integer getCustomerId() {
+        return customerId;
+    }
+
+    public void setCustomerId(Integer customerId) {
+        this.customerId = customerId;
+    }
+
+    public Integer getBookingRequestId() {
+        return bookingRequestId;
+    }
+
+    public void setBookingRequestId(Integer bookingRequestId) {
+        this.bookingRequestId = bookingRequestId;
     }
 
     public String getRoomNumber() {
@@ -103,6 +127,22 @@ public class Reservation {
         this.checkOutDate = checkOutDate;
     }
 
+    public OffsetDateTime getCheckedInAt() {
+        return checkedInAt;
+    }
+
+    public void setCheckedInAt(OffsetDateTime checkedInAt) {
+        this.checkedInAt = checkedInAt;
+    }
+
+    public OffsetDateTime getCheckedOutAt() {
+        return checkedOutAt;
+    }
+
+    public void setCheckedOutAt(OffsetDateTime checkedOutAt) {
+        this.checkedOutAt = checkedOutAt;
+    }
+
     public String getGuestName() {
         return guestName;
     }
@@ -133,6 +173,14 @@ public class Reservation {
 
     public void setGuestAge(Integer guestAge) {
         this.guestAge = guestAge;
+    }
+
+    public String getGuestCategory() {
+        return guestCategory;
+    }
+
+    public void setGuestCategory(String guestCategory) {
+        this.guestCategory = guestCategory;
     }
 
     public String getGuestPhone() {
@@ -188,7 +236,9 @@ public class Reservation {
      */
     public String getReservationStatusLabel() {
         return switch (reservationStatus) {
+            case "pending" -> "確認待ち";
             case "cancelled" -> "取消済";
+            case "checked_in" -> "滞在中";
             case "checked_out" -> "チェックアウト完了待清掃";
             default -> "予約済";
         };
@@ -198,7 +248,12 @@ public class Reservation {
      * 支払状況は UI 上では二値の表示に寄せる。
      */
     public String getPaymentStatusLabel() {
-        return "paid".equals(paymentStatus) ? "支払済" : "未払い";
+        return switch (paymentStatus) {
+            case "paid" -> "支払済";
+            case "partially_refunded" -> "一部返金";
+            case "refunded" -> "全額返金";
+            default -> "未払い";
+        };
     }
 
     public String getRoomCleaningStatus() {
@@ -223,6 +278,30 @@ public class Reservation {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public String getCancellationReason() {
+        return cancellationReason;
+    }
+
+    public void setCancellationReason(String cancellationReason) {
+        this.cancellationReason = cancellationReason;
+    }
+
+    public String getCancelledBy() {
+        return cancelledBy;
+    }
+
+    public void setCancelledBy(String cancelledBy) {
+        this.cancelledBy = cancelledBy;
+    }
+
+    public OffsetDateTime getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public void setCancelledAt(OffsetDateTime cancelledAt) {
+        this.cancelledAt = cancelledAt;
     }
 
     public String getCompanionSummary() {

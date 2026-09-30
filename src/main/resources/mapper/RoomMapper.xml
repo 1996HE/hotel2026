@@ -59,12 +59,39 @@
   </select>
 
   <select id="findBookable" resultMap="RoomResultMap">
-    <!-- 予約フォームには空室かつ清掃済みの客室だけを渡す。 -->
+    <!-- 将来予約を妨げないよう、候補一覧は現在の物理状態ではなく有効性だけで絞る。 -->
     SELECT <include refid="RoomColumns" />
     FROM rooms
     WHERE active = true
-      AND occupancy_status = 'vacant'
-      AND cleaning_status = 'cleaned'
+    ORDER BY room_number
+  </select>
+
+  <select id="findAvailableForStay" resultMap="RoomResultMap">
+    <!-- 宿泊期間の重複、定員、当日物理状態をまとめて確認し、選択可能な客室だけを返す。 -->
+    SELECT <include refid="RoomColumns" />
+    FROM rooms
+    WHERE active = true
+      AND capacity &gt;= #{guestCount}
+      AND NOT EXISTS (
+        SELECT 1
+        FROM reservations
+        WHERE reservations.room_id = rooms.id
+          AND reservations.reservation_status IN ('pending', 'booked', 'checked_in')
+          AND reservations.check_in_date &lt; #{checkOutDate}
+          AND reservations.check_out_date &gt; #{checkInDate}
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM room_inventory_blocks blocks
+        WHERE blocks.room_id = rooms.id
+          AND blocks.record_status = 'effective'
+          AND blocks.start_date &lt; #{checkOutDate}
+          AND blocks.end_date &gt; #{checkInDate}
+      )
+      AND (
+        #{checkInDate} &gt; #{businessDate}
+        OR (occupancy_status = 'vacant' AND cleaning_status = 'cleaned')
+      )
     ORDER BY room_number
   </select>
 
@@ -80,6 +107,14 @@
     FROM rooms
     WHERE id = #{id}
     FOR UPDATE
+  </select>
+
+  <select id="countOverlappingInventoryBlocks" resultType="int">
+    SELECT COUNT(*) FROM room_inventory_blocks
+    WHERE room_id = #{roomId}
+      AND record_status = 'effective'
+      AND start_date &lt; #{checkOutDate}
+      AND end_date &gt; #{checkInDate}
   </select>
 
   <select id="findByRoomNumberIncludingInactive" resultMap="RoomResultMap">
@@ -173,7 +208,7 @@
     SELECT COUNT(*)
     FROM reservations
     WHERE room_id = #{id}
-      AND reservation_status = 'booked'
+      AND reservation_status IN ('pending', 'booked', 'checked_in')
   </select>
 
   <select id="countReservationsByRoomId" resultType="int">

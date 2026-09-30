@@ -10,6 +10,7 @@
       guest_kana,
       guest_gender,
       guest_age,
+      guest_category,
       guest_phone
     ) VALUES (
       #{reservationId},
@@ -17,7 +18,12 @@
       #{guestKana},
       #{guestGender},
       #{guestAge},
+      #{guestCategory},
       #{guestPhone}
     )
   </insert>
+
+  <delete id="deleteByReservationId">
+    DELETE FROM reservation_guests WHERE reservation_id = #{reservationId}
+  </delete>
 </mapper>

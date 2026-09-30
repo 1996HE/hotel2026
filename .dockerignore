@@ -1,0 +1,9 @@
+.git
+.github
+.idea
+.vscode
+docs
+evidence
+node_modules
+target
+*.log

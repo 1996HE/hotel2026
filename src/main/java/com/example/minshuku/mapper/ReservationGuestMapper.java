@@ -14,4 +14,7 @@ public interface ReservationGuestMapper {
      * 予約本体登録後、人数分の同行者明細を保存する。
      */
     int insert(ReservationGuest guest);
+
+    /** 予約編集時に同行者明細を入れ替える。 */
+    int deleteByReservationId(Integer reservationId);
 }

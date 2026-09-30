@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.minshuku.config.SecurityConfig;
 import com.example.minshuku.domain.Room;
+import com.example.minshuku.service.AdminUserService;
 import com.example.minshuku.service.RoomService;
 import com.example.minshuku.support.LoggedTest;
 import com.example.minshuku.support.TestSetData;
@@ -25,11 +26,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 @WebMvcTest(RoomController.class)
 @Import(SecurityConfig.class)
+@WithMockUser(username = "admin")
 @LoggedTest
 @DisplayName("部屋管理画面コントローラー")
 /**
@@ -40,6 +43,8 @@ class RoomControllerTest {
     private MockMvc mockMvc;
     @MockBean
     private RoomService roomService;
+    @MockBean
+    private AdminUserService adminUserService;
 
     /**
      * テストケース名：test_01 rooms Page Shows Active And Deleted Rooms Normally

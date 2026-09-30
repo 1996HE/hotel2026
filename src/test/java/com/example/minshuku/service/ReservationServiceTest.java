@@ -12,6 +12,7 @@ import com.example.minshuku.domain.Reservation;
 import com.example.minshuku.domain.ReservationGuest;
 import com.example.minshuku.domain.Room;
 import com.example.minshuku.mapper.ReservationGuestMapper;
+import com.example.minshuku.mapper.ReservationFinanceMapper;
 import com.example.minshuku.mapper.ReservationMapper;
 import com.example.minshuku.mapper.RoomMapper;
 import com.example.minshuku.mapper.RoomPriceRuleMapper;
@@ -46,12 +47,16 @@ class ReservationServiceTest {
     private RoomMapper roomMapper;
     @Mock
     private RoomPriceRuleMapper priceRuleMapper;
+    @Mock
+    private CustomerService customerService;
+    @Mock
+    private ReservationFinanceMapper financeMapper;
     private ReservationService reservationService;
 
     @BeforeEach
     void setUp() {
         reservationService = new ReservationService(reservationMapper, reservationGuestMapper, roomMapper,
-                priceRuleMapper);
+                priceRuleMapper, customerService, financeMapper);
         lenient().when(reservationMapper.currentDate()).thenReturn(BUSINESS_DATE);
         lenient().when(reservationMapper.nextReservationSequence()).thenReturn(1L);
     }
@@ -130,7 +135,7 @@ class ReservationServiceTest {
         verify(reservationMapper).insert(reservationCaptor.capture());
         verify(reservationGuestMapper).insert(guestCaptor.capture());
         verify(roomMapper).findByIdForUpdate(1);
-        verify(roomMapper).updateStatuses(1, "reserved", "cleaned");
+        verify(roomMapper, never()).updateStatuses(any(), any(), any());
         assertThat(reservationCaptor.getValue().getReservationStatus()).isEqualTo("booked");
         assertThat(reservationCaptor.getValue().getReservationNo()).isEqualTo("R000001");
         assertThat(reservationCaptor.getValue().getReservationNo()).hasSize(7);
@@ -178,13 +183,15 @@ class ReservationServiceTest {
     @Test
     void createRejectsRoomThatIsNotVacant() {
         Reservation reservation = sampleReservation();
+        reservation.setCheckInDate(BUSINESS_DATE);
+        reservation.setCheckOutDate(BUSINESS_DATE.plusDays(1));
         Room room = sampleBookableRoom();
         room.setOccupancyStatus("occupied");
         when(roomMapper.findByIdForUpdate(1)).thenReturn(room);
         assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
                 List.of("女性"), List.of(28), List.of("080-0000-0000")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("空室の部屋のみ予約できます。");
+                .hasMessage("当日予約は空室の部屋のみ登録できます。");
         verify(reservationMapper, never()).countOverlapping(any(), any(), any());
         verify(reservationMapper, never()).insert(any(Reservation.class));
     }
@@ -199,13 +206,15 @@ class ReservationServiceTest {
     @Test
     void createRejectsRoomThatIsNotCleaned() {
         Reservation reservation = sampleReservation();
+        reservation.setCheckInDate(BUSINESS_DATE);
+        reservation.setCheckOutDate(BUSINESS_DATE.plusDays(1));
         Room room = sampleBookableRoom();
         room.setCleaningStatus("needs_cleaning");
         when(roomMapper.findByIdForUpdate(1)).thenReturn(room);
         assertThatThrownBy(() -> reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"),
                 List.of("女性"), List.of(28), List.of("080-0000-0000")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("清掃済みの部屋のみ予約できます。");
+                .hasMessage("当日予約は清掃済みの部屋のみ登録できます。");
         verify(reservationMapper, never()).countOverlapping(any(), any(), any());
         verify(reservationMapper, never()).insert(any(Reservation.class));
     }
@@ -338,7 +347,7 @@ class ReservationServiceTest {
                 .thenReturn(0);
         reservationService.create(reservation, true, List.of(), List.of(), List.of(), List.of(), List.of());
         verify(reservationMapper).insert(any(Reservation.class));
-        verify(roomMapper).updateStatuses(1, "reserved", "cleaned");
+        verify(roomMapper, never()).updateStatuses(any(), any(), any());
     }
 
     /**
@@ -430,5 +439,33 @@ class ReservationServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("チェックアウト済み予約のみ清掃状態を更新できます。");
         verify(roomMapper, never()).updateStatuses(any(), any(), any());
+    }
+
+    @DisplayName("test_18 update Reservation Status Rejects Invalid Transition")
+    @Test
+    void updateReservationStatusRejectsInvalidTransition() {
+        Reservation reservation = sampleReservation();
+        reservation.setId(1);
+        reservation.setReservationStatus("checked_out");
+        when(reservationMapper.findById(1)).thenReturn(reservation);
+
+        assertThatThrownBy(() -> reservationService.updateReservationStatus(1, "booked"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("指定された予約状態へは変更できません。");
+        verify(reservationMapper, never()).updateReservationStatus(any(), any());
+    }
+
+    @DisplayName("test_19 update Reservation Status Rejects Checkout Before Check In")
+    @Test
+    void updateReservationStatusRejectsCheckoutBeforeCheckIn() {
+        Reservation reservation = sampleReservation();
+        reservation.setId(1);
+        reservation.setReservationStatus("booked");
+        when(reservationMapper.findById(1)).thenReturn(reservation);
+
+        assertThatThrownBy(() -> reservationService.updateReservationStatus(1, "checked_out"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("チェックイン前の予約はチェックアウトできません。");
+        verify(reservationMapper, never()).updateReservationStatus(any(), any());
     }
 }

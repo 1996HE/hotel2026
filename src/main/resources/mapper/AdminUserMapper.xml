@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.minshuku.mapper.AdminUserMapper">
+  <resultMap id="AdminResultMap" type="com.example.minshuku.domain.AdminUser">
+    <id property="id" column="id" />
+    <result property="username" column="username" />
+    <result property="passwordHash" column="password_hash" />
+    <result property="enabled" column="enabled" />
+    <result property="failedAttempts" column="failed_attempts" />
+    <result property="lockedUntil" column="locked_until" />
+    <result property="lastLoginAt" column="last_login_at" />
+  </resultMap>
+
+  <select id="countAll" resultType="int">SELECT COUNT(*) FROM admin_users</select>
+  <select id="findByUsername" resultMap="AdminResultMap">
+    SELECT id, username, password_hash, enabled, failed_attempts, locked_until, last_login_at
+    FROM admin_users WHERE LOWER(username)=LOWER(#{username})
+  </select>
+  <insert id="insert" parameterType="com.example.minshuku.domain.AdminUser" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO admin_users(username, password_hash, enabled)
+    VALUES(#{username}, #{passwordHash}, true)
+  </insert>
+  <update id="recordSuccess">
+    UPDATE admin_users SET failed_attempts=0, locked_until=NULL, last_login_at=now(), updated_at=now()
+    WHERE LOWER(username)=LOWER(#{username})
+  </update>
+  <update id="recordFailure">
+    UPDATE admin_users SET failed_attempts=failed_attempts + 1,
+      locked_until=CASE WHEN failed_attempts + 1 &gt;= 5 THEN #{lockedUntil} ELSE locked_until END,
+      updated_at=now()
+    WHERE LOWER(username)=LOWER(#{username})
+  </update>
+  <update id="updatePassword">
+    UPDATE admin_users SET password_hash=#{passwordHash}, failed_attempts=0,
+      locked_until=NULL, updated_at=now()
+    WHERE LOWER(username)=LOWER(#{username})
+  </update>
+</mapper>

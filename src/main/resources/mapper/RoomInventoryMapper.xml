@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.minshuku.mapper.RoomInventoryMapper">
+  <resultMap id="BlockMap" type="com.example.minshuku.domain.RoomInventoryBlock">
+    <id property="id" column="id" />
+    <result property="roomId" column="room_id" />
+    <result property="roomNumber" column="room_number" />
+    <result property="roomName" column="room_name" />
+    <result property="blockType" column="block_type" />
+    <result property="startDate" column="start_date" />
+    <result property="endDateExclusive" column="end_date" />
+    <result property="reason" column="reason" />
+    <result property="recordStatus" column="record_status" />
+    <result property="splitFromId" column="split_from_id" />
+    <result property="version" column="version" />
+    <result property="createdBy" column="created_by" />
+    <result property="createdAt" column="created_at" />
+    <result property="updatedBy" column="updated_by" />
+    <result property="updatedAt" column="updated_at" />
+    <result property="cancelledBy" column="cancelled_by" />
+    <result property="cancelledAt" column="cancelled_at" />
+    <result property="cancellationNote" column="cancellation_note" />
+  </resultMap>
+
+  <resultMap id="EventMap" type="com.example.minshuku.domain.RoomInventoryBlockEvent">
+    <id property="id" column="id" />
+    <result property="operationId" column="operation_id" />
+    <result property="blockId" column="block_id" />
+    <result property="roomId" column="room_id" />
+    <result property="eventType" column="event_type" />
+    <result property="beforeType" column="before_type" />
+    <result property="beforeStartDate" column="before_start_date" />
+    <result property="beforeEndDate" column="before_end_date" />
+    <result property="beforeReason" column="before_reason" />
+    <result property="beforeStatus" column="before_status" />
+    <result property="afterType" column="after_type" />
+    <result property="afterStartDate" column="after_start_date" />
+    <result property="afterEndDate" column="after_end_date" />
+    <result property="afterReason" column="after_reason" />
+    <result property="afterStatus" column="after_status" />
+    <result property="actionNote" column="action_note" />
+    <result property="actorUsername" column="actor_username" />
+    <result property="occurredAt" column="occurred_at" />
+  </resultMap>
+
+  <sql id="BlockColumns">
+    b.id, b.room_id, r.room_number, r.room_name, b.block_type,
+    b.start_date, b.end_date, b.reason, b.record_status, b.split_from_id,
+    b.version, b.created_by, b.created_at, b.updated_by, b.updated_at,
+    b.cancelled_by, b.cancelled_at, b.cancellation_note
+  </sql>
+
+  <select id="findForCalendar" resultMap="BlockMap">
+    SELECT <include refid="BlockColumns" />
+    FROM room_inventory_blocks b
+    JOIN rooms r ON r.id = b.room_id
+    WHERE b.record_status = 'effective'
+      AND b.start_date &lt; #{endDateExclusive}
+      AND b.end_date &gt; #{startDate}
+    ORDER BY r.room_number, b.start_date, b.id
+  </select>
+
+  <select id="findById" resultMap="BlockMap">
+    SELECT <include refid="BlockColumns" />
+    FROM room_inventory_blocks b JOIN rooms r ON r.id = b.room_id
+    WHERE b.id = #{id}
+  </select>
+
+  <select id="findByIdForUpdate" resultMap="BlockMap">
+    SELECT <include refid="BlockColumns" />
+    FROM room_inventory_blocks b JOIN rooms r ON r.id = b.room_id
+    WHERE b.id = #{id}
+    FOR UPDATE
+  </select>
+
+  <select id="countOverlapping" resultType="int">
+    SELECT COUNT(*) FROM room_inventory_blocks
+    WHERE room_id = #{roomId}
+      AND record_status = 'effective'
+      AND start_date &lt; #{endDateExclusive}
+      AND end_date &gt; #{startDate}
+      <if test="excludedId != null">AND id != #{excludedId}</if>
+  </select>
+
+  <insert id="insert" parameterType="com.example.minshuku.domain.RoomInventoryBlock" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO room_inventory_blocks (
+      room_id, block_type, start_date, end_date, reason, record_status,
+      split_from_id, version, created_by, updated_by
+    ) VALUES (
+      #{roomId}, #{blockType}, #{startDate}, #{endDateExclusive}, #{reason}, 'effective',
+      #{splitFromId}, 0, #{createdBy}, #{updatedBy}
+    )
+  </insert>
+
+  <update id="update" parameterType="com.example.minshuku.domain.RoomInventoryBlock">
+    UPDATE room_inventory_blocks
+    SET room_id = #{roomId}, block_type = #{blockType}, start_date = #{startDate},
+        end_date = #{endDateExclusive}, reason = #{reason}, updated_by = #{updatedBy},
+        updated_at = CURRENT_TIMESTAMP, version = version + 1
+    WHERE id = #{id} AND record_status = 'effective' AND version = #{version}
+  </update>
+
+  <update id="cancel">
+    UPDATE room_inventory_blocks
+    SET record_status = 'cancelled', cancelled_by = #{actor}, cancelled_at = CURRENT_TIMESTAMP,
+        cancellation_note = #{note}, updated_by = #{actor}, updated_at = CURRENT_TIMESTAMP,
+        version = version + 1
+    WHERE id = #{id} AND record_status = 'effective' AND version = #{version}
+  </update>
+
+  <insert id="insertEvent" parameterType="com.example.minshuku.domain.RoomInventoryBlockEvent">
+    INSERT INTO room_inventory_block_events (
+      operation_id, block_id, room_id, event_type,
+      before_type, before_start_date, before_end_date, before_reason, before_status,
+      after_type, after_start_date, after_end_date, after_reason, after_status,
+      action_note, actor_username
+    ) VALUES (
+      #{operationId}, #{blockId}, #{roomId}, #{eventType},
+      #{beforeType}, #{beforeStartDate}, #{beforeEndDate}, #{beforeReason}, #{beforeStatus},
+      #{afterType}, #{afterStartDate}, #{afterEndDate}, #{afterReason}, #{afterStatus},
+      #{actionNote}, #{actorUsername}
+    )
+  </insert>
+
+  <select id="findEvents" resultMap="EventMap">
+    SELECT * FROM room_inventory_block_events
+    WHERE block_id = #{blockId}
+    ORDER BY occurred_at, id
+  </select>
+</mapper>
