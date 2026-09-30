@@ -1,6 +1,7 @@
 package com.example.minshuku.mapper;
 
 import com.example.minshuku.domain.Room;
+import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -33,6 +34,15 @@ public interface RoomMapper {
     List<Room> findBookable();
 
     /**
+     * 指定した宿泊期間と人数で予約可能な有効客室を取得する。
+     */
+    List<Room> findAvailableForStay(
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate,
+            @Param("guestCount") int guestCount,
+            @Param("businessDate") LocalDate businessDate);
+
+    /**
      * 通常参照用に客室を1件取得する。
      */
     Room findById(@Param("id") Integer id);
@@ -41,6 +51,12 @@ public interface RoomMapper {
      * 予約登録中の並行更新を防ぐため、対象客室をロックして取得する。
      */
     Room findByIdForUpdate(@Param("id") Integer id);
+
+    /** Active stop-sale/maintenance ranges intersecting a stay. */
+    int countOverlappingInventoryBlocks(
+            @Param("roomId") Integer roomId,
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate);
 
     /**
      * 重複登録判定と論理削除済み客室の再有効化判定に使う。

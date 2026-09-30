@@ -7,6 +7,7 @@
     <result property="reservationNo" column="reservation_no" />
     <result property="roomId" column="room_id" />
     <result property="customerId" column="customer_id" />
+    <result property="bookingRequestId" column="booking_request_id" />
     <result property="roomNumber" column="room_number" />
     <result property="roomName" column="room_name" />
     <result property="roomCleaningStatus" column="room_cleaning_status" />
@@ -18,6 +19,7 @@
     <result property="guestKana" column="guest_kana" />
     <result property="guestGender" column="guest_gender" />
     <result property="guestAge" column="guest_age" />
+    <result property="guestCategory" column="guest_category" />
     <result property="guestPhone" column="guest_phone" />
     <result property="guestEmail" column="guest_email" />
     <result property="guestCount" column="guest_count" />
@@ -26,6 +28,9 @@
     <result property="reservationStatus" column="reservation_status" />
     <result property="totalAmount" column="total_amount" />
     <result property="note" column="note" />
+    <result property="cancellationReason" column="cancellation_reason" />
+    <result property="cancelledBy" column="cancelled_by" />
+    <result property="cancelledAt" column="cancelled_at" />
     <result property="companionSummary" column="companion_summary" />
     <result property="createdAt" column="created_at" />
     <result property="updatedAt" column="updated_at" />
@@ -37,6 +42,7 @@
     r.reservation_no,
     r.room_id,
     r.customer_id,
+    r.booking_request_id,
     rooms.room_number,
     rooms.room_name,
     rooms.cleaning_status AS room_cleaning_status,
@@ -48,6 +54,7 @@
     r.guest_kana,
     r.guest_gender,
     r.guest_age,
+    r.guest_category,
     r.guest_phone,
     r.guest_email,
     r.guest_count,
@@ -56,6 +63,9 @@
     r.reservation_status,
     r.total_amount,
     r.note,
+    r.cancellation_reason,
+    r.cancelled_by,
+    r.cancelled_at,
     r.created_at,
     r.updated_at
   </sql>
@@ -85,6 +95,9 @@
     cr.reservation_status,
     cr.total_amount,
     cr.note,
+    NULL AS cancellation_reason,
+    NULL AS cancelled_by,
+    NULL AS cancelled_at,
     cr.created_at,
     cr.updated_at
   </sql>
@@ -264,6 +277,18 @@
     ORDER BY r.check_out_date, r.id
   </select>
 
+  <select id="findBookedArrivals" resultMap="ReservationResultMap">
+    <!-- 入室日を迎えた予約を抽出し、現在の客室状態を予約済みに同期する。 -->
+    SELECT
+      <include refid="ReservationColumns" />,
+      '' AS companion_summary
+    FROM reservations r
+      JOIN rooms ON rooms.id = r.room_id
+    WHERE r.reservation_status = 'booked'
+      AND r.check_in_date = #{stayDate}
+    ORDER BY r.room_id, r.id
+  </select>
+
   <select id="findById" resultMap="ReservationResultMap">
     <!-- 予約の編集・状態更新前に単票を取得する。 -->
     SELECT
@@ -274,18 +299,54 @@
     WHERE r.id = #{id}
   </select>
 
+  <select id="findByIdForUpdate" resultMap="ReservationResultMap">
+    SELECT
+      <include refid="ReservationColumns" />,
+      '' AS companion_summary
+    FROM reservations r
+      JOIN rooms ON rooms.id = r.room_id
+    WHERE r.id = #{id}
+    FOR UPDATE
+  </select>
+
+  <select id="findCalendarStays" resultType="com.example.minshuku.domain.RoomCalendarStay">
+    SELECT r.id,
+           r.reservation_no AS reservationNo,
+           r.booking_request_id AS bookingRequestId,
+           p.request_no AS requestNo,
+           r.room_id AS roomId,
+           r.check_in_date AS checkInDate,
+           r.check_out_date AS checkOutDate,
+           r.guest_name AS guestName,
+           r.guest_count AS guestCount,
+           r.reservation_status AS status,
+           r.total_amount AS totalAmount,
+           rooms.cleaning_status AS roomCleaningStatus,
+           r.updated_at AS updatedAt,
+           CASE WHEN r.booking_request_id IS NULL THEN 1 ELSE COUNT(*) OVER (PARTITION BY r.booking_request_id) END AS groupSize
+    FROM reservations r
+      JOIN rooms ON rooms.id = r.room_id
+      LEFT JOIN public_booking_requests p ON p.id = r.booking_request_id
+    WHERE r.reservation_status != 'cancelled'
+      AND r.check_in_date &lt; #{endDateExclusive}
+      AND r.check_out_date &gt; #{startDate}
+    ORDER BY rooms.room_number, r.check_in_date, r.id
+  </select>
+
   <insert id="insert" parameterType="com.example.minshuku.domain.Reservation" useGeneratedKeys="true" keyProperty="id">
     <!-- 予約本体を保存し、生成キーでIDを返す。 -->
     INSERT INTO reservations (
       reservation_no,
       room_id,
       customer_id,
+      booking_request_id,
       check_in_date,
       check_out_date,
       guest_name,
       guest_kana,
       guest_gender,
       guest_age,
+      guest_category,
       guest_phone,
       guest_email,
       guest_count,
@@ -298,12 +359,14 @@
       #{reservationNo},
       #{roomId},
       #{customerId},
+      #{bookingRequestId},
       #{checkInDate},
       #{checkOutDate},
       #{guestName},
       #{guestKana},
       #{guestGender},
       #{guestAge},
+      #{guestCategory},
       #{guestPhone},
       #{guestEmail},
       #{guestCount},
@@ -341,7 +404,7 @@
     SELECT COUNT(*)
     FROM reservations
     WHERE room_id = #{roomId}
-      AND reservation_status IN ('booked', 'checked_in')
+      AND reservation_status IN ('pending', 'booked', 'checked_in')
       AND check_in_date &lt; #{checkOutDate}
       AND check_out_date &gt; #{checkInDate}
   </select>
@@ -350,7 +413,7 @@
     SELECT COUNT(*)
     FROM reservations
     WHERE room_id = #{roomId}
-      AND reservation_status IN ('booked', 'checked_in')
+      AND reservation_status IN ('pending', 'booked', 'checked_in')
       AND id != #{excludedReservationId}
       AND check_in_date &lt; #{checkOutDate}
       AND check_out_date &gt; #{checkInDate}
@@ -370,6 +433,17 @@
       AND id != #{excludedReservationId}
       AND check_in_date &lt;= #{stayDate}
       AND check_out_date &gt; #{stayDate}
+  </select>
+
+  <select id="findOtherActiveStatusesByRoomIdOnDate" resultType="string">
+    SELECT reservation_status
+    FROM reservations
+    WHERE room_id = #{roomId}
+      AND reservation_status IN ('booked', 'checked_in')
+      AND id != #{excludedReservationId}
+      AND check_in_date &lt;= #{stayDate}
+      AND check_out_date &gt; #{stayDate}
+    ORDER BY CASE WHEN reservation_status = 'checked_in' THEN 0 ELSE 1 END, id
   </select>
 
   <update id="updatePaymentStatus">
@@ -412,6 +486,14 @@
       reservation_status = 'cancelled',
       updated_at = now()
     WHERE id = #{id}
+  </update>
+
+  <update id="cancelWithReason">
+    UPDATE reservations
+    SET reservation_status = 'cancelled', cancellation_reason = #{reason},
+        cancelled_by = #{actor}, cancelled_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = #{id} AND reservation_status = #{expectedStatus}
   </update>
 
   <delete id="deleteCancelled">

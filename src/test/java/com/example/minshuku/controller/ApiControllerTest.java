@@ -98,6 +98,24 @@ class ApiControllerTest {
                 .andExpect(jsonPath("$.bookableRooms[0].capacity").value(2));
     }
 
+    @DisplayName("test_02b available Rooms Api Filters By Stay And Guest Count")
+    @Test
+    void availableRoomsApiFiltersByStayAndGuestCount() throws Exception {
+        LocalDate checkInDate = LocalDate.of(2026, 9, 10);
+        LocalDate checkOutDate = LocalDate.of(2026, 9, 12);
+        when(reservationService.findAvailableRooms(checkInDate, checkOutDate, 2)).thenReturn(List.of(sampleRoom()));
+
+        mockMvc.perform(get("/api/reservations/available-rooms")
+                .param("checkInDate", checkInDate.toString())
+                .param("checkOutDate", checkOutDate.toString())
+                .param("guestCount", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].roomNumber").value("101"))
+                .andExpect(jsonPath("$[0].capacity").value(2));
+
+        verify(reservationService).findAvailableRooms(checkInDate, checkOutDate, 2);
+    }
+
     /**
      * テストケース名：test_03 restore Room Api Returns Success Message
      * テスト条件：削除済み部屋の復元を行う。

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { I18nProvider, LanguageToggle, TranslationBoundary, useI18n } from "./i18n.jsx";
+import RoomCalendar from "./RoomCalendar.jsx";
 
 const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
 const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content || "X-CSRF-TOKEN";
@@ -41,11 +42,19 @@ const cleaningLabel = (value) => (value === "cleaned" ? "清掃済" : "清掃待
 const totalPages = (count) => Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
 const slicePage = (items, page) => items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 const padPage = (items) => Array.from({ length: PAGE_SIZE }, (_, index) => items[index] || null);
+const nightsBetween = (checkInDate, checkOutDate) => {
+  if (!checkInDate || !checkOutDate) return 0;
+  const checkIn = Date.parse(`${checkInDate}T00:00:00Z`);
+  const checkOut = Date.parse(`${checkOutDate}T00:00:00Z`);
+  if (!Number.isFinite(checkIn) || !Number.isFinite(checkOut) || checkOut <= checkIn) return 0;
+  return Math.round((checkOut - checkIn) / 86400000);
+};
 
 function Nav({ route, onLogout }) {
   const items = [
     ["/dashboard", "ホーム", "dashboard"],
     ["/rooms", "客室管理", "rooms"],
+    ["/calendar", "房態カレンダー", "calendar"],
     ["/reservations", "予約管理", "calendar"],
     ["/prices", "料金設定", "price"],
     ["/customers", "顧客管理", "customers"],
@@ -1115,6 +1124,9 @@ function Customers() {
                         </td>
                         <td>
                           {stay.checkInDate} → {stay.checkOutDate}
+                          <small className="date-nights">
+                            {nightsBetween(stay.checkInDate, stay.checkOutDate)} {t("泊", "晚")}
+                          </small>
                         </td>
                         <td>{stay.guestCount}</td>
                         <td>{yen(stay.totalAmount)}</td>
@@ -1476,6 +1488,9 @@ function Reservations() {
   const [checkedOutPage, setCheckedOutPage] = useState(1);
   const [notice, setNotice] = useState({});
   const [form, setForm] = useState({ guestCount: 1, reservationForm: "公式" });
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [availabilityState, setAvailabilityState] = useState({ loading: false, error: "" });
   const load = useCallback(async () => {
     const params = new URLSearchParams({
       page: String(reservationPage),
@@ -1483,8 +1498,12 @@ function Reservations() {
       checkedOutPage: String(checkedOutPage),
     });
     try {
-      const response = await api(`/api/reservations?${params.toString()}`);
+      const [response, requests] = await Promise.all([
+        api(`/api/reservations?${params.toString()}`),
+        api("/api/booking-requests/pending"),
+      ]);
       setData(response);
+      setPendingRequests(requests);
       setReservationPage(response.reservations.page);
       setCancelledPage(response.cancelledReservations.page);
       setCheckedOutPage(response.checkedOutReservations.page);
@@ -1496,6 +1515,44 @@ function Reservations() {
     load();
   }, [load]);
   const companions = useMemo(() => Math.max(0, Number(form.guestCount || 1) - 1), [form.guestCount]);
+  const stayNights = useMemo(
+    () => nightsBetween(form.checkInDate, form.checkOutDate),
+    [form.checkInDate, form.checkOutDate]
+  );
+  useEffect(() => {
+    const guestCount = Number(form.guestCount);
+    if (!form.checkInDate || !form.checkOutDate || stayNights < 1 || guestCount < 1 || guestCount > 10) {
+      setAvailableRooms([]);
+      setAvailabilityState({ loading: false, error: "" });
+      return undefined;
+    }
+
+    let active = true;
+    setAvailabilityState({ loading: true, error: "" });
+    const params = new URLSearchParams({
+      checkInDate: form.checkInDate,
+      checkOutDate: form.checkOutDate,
+      guestCount: String(guestCount),
+    });
+    api(`/api/reservations/available-rooms?${params.toString()}`)
+      .then((rooms) => {
+        if (!active) return;
+        setAvailableRooms(rooms);
+        setForm((current) => {
+          if (!current.roomId || rooms.some((room) => String(room.id) === String(current.roomId))) return current;
+          return { ...current, roomId: "" };
+        });
+        setAvailabilityState({ loading: false, error: "" });
+      })
+      .catch((error) => {
+        if (!active) return;
+        setAvailableRooms([]);
+        setAvailabilityState({ loading: false, error: error.message });
+      });
+    return () => {
+      active = false;
+    };
+  }, [form.checkInDate, form.checkOutDate, form.guestCount, stayNights]);
   const submit = async (event) => {
     event.preventDefault();
     const companionNames = Array.from({ length: companions }, (_, index) => form[`companionName${index}`] || "");
@@ -1586,6 +1643,23 @@ function Reservations() {
       load();
     }, setNotice);
   };
+  const confirmRequest = async (item) => {
+    runAction(async () => {
+      const res = await api(`/api/booking-requests/${item.request.id}/confirm`, { method: "POST" });
+      setNotice({ message: res.message });
+      load();
+    }, setNotice);
+  };
+  const rejectRequest = async (item, reason) => {
+    runAction(async () => {
+      const res = await api(`/api/booking-requests/${item.request.id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      setNotice({ message: res.message });
+      load();
+    }, setNotice);
+  };
   return (
     <main className="page grid-page reservations-page" id="main-content">
       <PageHeader
@@ -1593,24 +1667,17 @@ function Reservations() {
         title="予約管理"
         description="新しい予約の登録と、宿泊・支払い・清掃状況を管理します。"
       />
+      <PendingBookingRequests
+        requests={pendingRequests}
+        onConfirm={confirmRequest}
+        onReject={rejectRequest}
+        language={language}
+      />
       <section className="panel form-panel reservation-form-panel">
         <span className="section-kicker">NEW RESERVATION</span>
         <h2>新規予約</h2>
         <Notice {...notice} onClose={() => setNotice({})} />
         <form className="form" onSubmit={submit}>
-          <label>
-            部屋
-            <select value={form.roomId || ""} onChange={(e) => setForm({ ...form, roomId: e.target.value })}>
-              <option value="">空室・清掃済の部屋を選択してください</option>
-              {data.rooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  {room.roomNumber} {room.roomName} / {t("定員", "定员")}
-                  {room.capacity}
-                  {language === "zh" ? "人" : "名"}
-                </option>
-              ))}
-            </select>
-          </label>
           <div className="form-grid form-grid-2">
             <label>
               チェックイン
@@ -1631,6 +1698,37 @@ function Reservations() {
               />
             </label>
           </div>
+          <output className="stay-night-summary" aria-live="polite">
+            <span>{t("宿泊数", "住宿晚数")}</span>
+            <strong>{stayNights > 0 ? `${stayNights}${t("泊", "晚")}` : "—"}</strong>
+            <small>{t("チェックイン・チェックアウト日から自動計算", "根据入住和退房日期自动计算")}</small>
+          </output>
+          <label>
+            部屋
+            <select
+              value={form.roomId || ""}
+              disabled={stayNights < 1 || availabilityState.loading}
+              onChange={(e) => setForm({ ...form, roomId: e.target.value })}
+            >
+              <option value="">
+                {availabilityState.loading
+                  ? t("予約可能な部屋を確認中です", "正在查询可预约房间")
+                  : stayNights < 1
+                    ? t("先に宿泊日を選択してください", "请先选择住宿日期")
+                    : availableRooms.length === 0
+                      ? t("条件に合う部屋がありません", "没有符合条件的房间")
+                      : t("予約可能な部屋を選択してください", "请选择可预约房间")}
+              </option>
+              {availableRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.roomNumber} {room.roomName} / {t("定員", "定员")}
+                  {room.capacity}
+                  {language === "zh" ? "人" : "名"}
+                </option>
+              ))}
+            </select>
+            {availabilityState.error ? <span className="field-hint is-visible">{availabilityState.error}</span> : null}
+          </label>
           <label>
             宿泊者名
             <input value={form.guestName || ""} onChange={(e) => setForm({ ...form, guestName: e.target.value })} />
@@ -1847,6 +1945,86 @@ function Reservations() {
   );
 }
 
+function PendingBookingRequests({ requests, onConfirm, onReject, language }) {
+  const [reasons, setReasons] = useState({});
+  const t = (ja, zh) => (language === "zh" ? zh : ja);
+  return (
+    <section className="panel wide pending-booking-panel">
+      <div className="section-title">
+        <div>
+          <span className="section-kicker">PUBLIC BOOKING REQUESTS</span>
+          <h2>{t("確認待ち予約申請", "等待确认的预约申请")}</h2>
+        </div>
+        <span className="record-count">
+          {requests.length}
+          {t("件", "条")}
+        </span>
+      </div>
+      {requests.length ? (
+        <div className="pending-booking-list">
+          {requests.map((item) => (
+            <article className="pending-booking-card" key={item.request.id}>
+              <div className="pending-booking-summary">
+                <div>
+                  <span className="pending-request-no">{item.request.requestNo}</span>
+                  <h3>{item.request.leadName}</h3>
+                  <p>
+                    {item.request.leadEmail} · {item.request.leadPhone} · {item.request.country}
+                  </p>
+                </div>
+                <div className="pending-booking-amount">
+                  <span>
+                    {item.request.checkInDate} — {item.request.checkOutDate}
+                  </span>
+                  <strong>{yen(item.request.totalAmount)}</strong>
+                  <small>
+                    {t("保留期限", "保留截止")}：{String(item.request.holdExpiresAt).replace("T", " ")}
+                  </small>
+                </div>
+              </div>
+              <div className="pending-room-list">
+                {item.rooms.map((room) => (
+                  <span key={room.id}>
+                    <b>
+                      {room.roomNumber} {room.roomName}
+                    </b>
+                    {room.guestCount}
+                    {t("名", "人")} · {yen(room.totalAmount)}
+                  </span>
+                ))}
+              </div>
+              {item.request.notes ? <p className="pending-booking-notes">{item.request.notes}</p> : null}
+              <div className="pending-booking-actions">
+                <button type="button" className="form-submit" onClick={() => onConfirm(item)}>
+                  {t("全室を確認", "整单确认")}
+                </button>
+                <label>
+                  {t("お断り理由（必須）", "拒绝原因（必填）")}
+                  <textarea
+                    rows="2"
+                    value={reasons[item.request.id] || ""}
+                    onChange={(event) => setReasons({ ...reasons, [item.request.id]: event.target.value })}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={!String(reasons[item.request.id] || "").trim()}
+                  onClick={() => onReject(item, reasons[item.request.id])}
+                >
+                  {t("全室をお断り", "整单拒绝")}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="empty">{t("確認待ちの申請はありません。", "没有等待确认的申请。")}</p>
+      )}
+    </section>
+  );
+}
+
 function ReservationTable({
   reservations = [],
   onCheckIn,
@@ -1964,6 +2142,9 @@ function ReservationRow({ item, onCheckIn, onCheckOut, onCancel, onDelete, reado
       )}
       <td>
         {item.checkInDate} - {item.checkOutDate}
+        <small className="date-nights">
+          {nightsBetween(item.checkInDate, item.checkOutDate)} {language === "zh" ? "晚" : "泊"}
+        </small>
       </td>
       <td>{yen(item.totalAmount)}</td>
       <td>
@@ -2200,6 +2381,8 @@ function ProtectedApplication({ onLogout }) {
       <div className="app-content">
         {route === "/rooms" ? (
           <Rooms />
+        ) : route === "/calendar" ? (
+          <RoomCalendar request={api} />
         ) : route === "/reservations" ? (
           <Reservations />
         ) : route === "/prices" ? (

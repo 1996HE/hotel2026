@@ -33,8 +33,11 @@ public class SecurityConfig {
             "/.git/**", "/.env", "/pom.xml", "/build.gradle", "/gradle.properties"
     };
     private static final String CONTENT_SECURITY_POLICY = String.join("; ",
-            "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data:",
-            "font-src 'self'", "connect-src 'self'", "form-action 'self'", "frame-ancestors 'none'", "base-uri 'self'");
+            "default-src 'self'", "script-src 'self' https://challenges.cloudflare.com",
+            "style-src 'self'", "img-src 'self' data:", "font-src 'self'",
+            "connect-src 'self' https://challenges.cloudflare.com",
+            "frame-src https://challenges.cloudflare.com", "form-action 'self'", "frame-ancestors 'none'",
+            "base-uri 'self'");
 
     private static RequestMatcher[] sourceLikeMatchers() {
         RequestMatcher[] matchers = new RequestMatcher[SOURCE_LIKE_PATHS.length];
@@ -70,7 +73,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(sourceLikeMatchers()).denyAll()
                         .requestMatchers("/login", "/setup", "/api/auth/**", "/error", "/js/**", "/styles/**",
-                                "/actuator/health/**")
+                                "/images/**", "/stay", "/stay/**", "/api/stay/**", "/actuator/health/**")
                         .permitAll()
                         .anyRequest().authenticated())
                 .securityContext(context -> context.securityContextRepository(repository))
@@ -80,7 +83,9 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
-                .csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .ignoringRequestMatchers(new AntPathRequestMatcher("/api/stay/**")))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
                         .referrerPolicy(

@@ -5,4 +5,5 @@ node_modules/
 .vscode/
 coverage/
 src/main/resources/static/js/app.js
+src/main/resources/static/js/guest.js
 docs/**/*.xlsx

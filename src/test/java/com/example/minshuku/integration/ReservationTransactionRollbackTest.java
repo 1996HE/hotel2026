@@ -56,7 +56,10 @@ class ReservationTransactionRollbackTest extends LocalDbTestSupport {
     @Test
     void createRollsBackReservationWhenCompanionInsertFails() {
         Reservation reservation = baseReservation(
-                bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 2);
+                bookableRoomId,
+                reservationService.currentDate().plusDays(10),
+                reservationService.currentDate().plusDays(12),
+                2);
         doThrow(new IllegalStateException("同行者保存失敗"))
                 .when(reservationGuestMapper)
                 .insert(any(ReservationGuest.class));

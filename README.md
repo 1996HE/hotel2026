@@ -5,17 +5,19 @@
 ## 功能
 
 - 房间管理：登记、停用、恢复房间，管理入住与清扫状态。
-- 预约管理：登记、取消、办理入住和退房，按住宿日期防止冲突，校验人数并计算应收金额。
-- 房态判定：未来预约不会覆盖当前房态；当日预约额外要求客房空闲且已清扫。
+- 预约管理：登记、取消、办理入住和退房，自动显示住宿晚数，并按住宿日期和人数筛选可预约房间。
+- 房态判定：未来预约不会覆盖当前房态；当日预约额外要求客房空闲且已清扫，到达入住日后自动同步为已预约。
 - 价格管理：按房间设置季节价格规则，每晚使用最高优先级规则计价。
 - 客户档案：只保存姓名、电话、邮箱和历史住宿记录。
 - 收退款：每笔订单保存一条收款和一条退款，支持现金、银行卡、转账、平台收款与部分退款。
 - 营业报表：按日期范围导出预约列表、住宿记录、收退款明细、月度汇总和支付方式汇总 Excel。
 - 管理员登录：首次启动创建唯一的本地管理员，密码使用 BCrypt 保存，连续失败会临时锁定。
 - 日中双语：默认日语，可切换中文，并在当前浏览器中记住上次选择。
+- 客用网站：提供日中英三语内容，并支持多房间实时空房、逐晚价格、24小时锁房、后台确认、预约状态查询及72小时前整单自助取消。
 - 本机备份：每天 02:00 自动保存 PostgreSQL 自定义格式备份，也可在营业与收款页面立即备份。
 - 仪表盘：查看房间、空房、有效预约和近期预约。
-- 自动退房：默认每小时同步到期预约，可通过 `APP_CHECKOUT_SYNC_CRON` 调整。
+- 管理端房态日历：按自然月显示“房间 × 日期”的 Tape Chart，可查看预约、入住、停售、维修和清扫状态，并创建或解除单房间库存封锁。
+- 房态自动同步：默认每分钟同步到期退房和当日到店预约，可通过 `APP_CHECKOUT_SYNC_CRON` 调整。
 
 界面支持电脑、平板和手机宽度；本地版只监听 `127.0.0.1`，不会直接暴露到局域网。
 
@@ -82,7 +84,10 @@ Docker Compose 默认仅向本机 `127.0.0.1` 暴露应用和数据库端口。
 
 访问地址：
 
+- 客用网站：<http://localhost:8000/jukai-internal/stay>
+- 查询预约：<http://localhost:8000/jukai-internal/stay/booking>
 - 预约一览：<http://localhost:8000/jukai-internal/dashboard>
+- 房态日历：<http://localhost:8000/jukai-internal/calendar>
 - 房间管理：<http://localhost:8000/jukai-internal/rooms>
 - 预约管理：<http://localhost:8000/jukai-internal/reservations>
 - 价格管理：<http://localhost:8000/jukai-internal/prices>
@@ -112,7 +117,7 @@ Windows PowerShell：
 
 ## 数据库迁移
 
-应用启动时由 Flyway 自动执行 `src/main/resources/db/migration` 下的版本化迁移。V2 会保留现有客房、预约和价格数据，并为旧预约建立客户及收款兼容记录。已有数据库首次接入时会建立版本基线；之后不要修改已执行的迁移文件，应继续新增迁移文件。
+应用启动时由 Flyway 自动执行 `src/main/resources/db/migration` 下的版本化迁移。V2 会保留现有客房、预约和价格数据，并为旧预约建立客户及收款兼容记录；V3、V4 增加公开多房间预约、查询及整单取消；V5 增加房态日历的库存封锁、变更审计、取消记录和预约／封锁交叉防冲突约束。已有数据库首次接入时会建立版本基线；之后不要修改已执行的迁移文件，应继续新增迁移文件。
 
 升级已有环境前先运行手动备份：
 
@@ -133,24 +138,34 @@ npm run check
 mvn verify
 ```
 
-`mvn verify` 包含 Java 测试和 Spotless 格式检查。GitHub Actions 会执行相同命令，并额外连接 PostgreSQL 运行数据库集成测试。
+`npm run check` 同时执行格式、代码检查、前端单元测试、高危依赖漏洞审计和前端构建；发现高危或严重漏洞时检查失败。`mvn verify` 包含 Java 测试和 Spotless 格式检查。GitHub Actions 会执行相同命令，并额外连接 PostgreSQL 运行数据库集成测试。H2 测试只验证业务分支；V5 的 GiST 排他约束、触发器和并发竞争必须以 PostgreSQL 实机测试为准。
 
 ## 运维
 
 重要环境变量：
 
-| 变量                     | 默认值                                       | 说明                       |
-| ------------------------ | -------------------------------------------- | -------------------------- |
-| `DB_URL`                 | `jdbc:postgresql://localhost:55432/minshuku` | 数据库地址                 |
-| `DB_USERNAME`            | `minshuku`                                   | 数据库用户                 |
-| `DB_PASSWORD`            | 无                                           | 必填，数据库密码           |
-| `APP_CONTEXT_PATH`       | `/jukai-internal`                            | URL 前缀                   |
-| `APP_CHECKOUT_SYNC_CRON` | `0 0 * * * *`                                | 到期订单同步 cron          |
-| `APP_TIME_ZONE`          | `Asia/Tokyo`                                 | 定时任务时区               |
-| `BACKUP_ENABLED`         | `true`                                       | 是否启用每日自动备份       |
-| `BACKUP_CRON`            | `0 0 2 * * *`                                | 每日备份 Spring 六段 cron  |
-| `BACKUP_DIRECTORY`       | `./backups`                                  | 宿主机上的指定备份文件夹   |
-| `PG_DUMP_COMMAND`        | `pg_dump`                                    | 非 Docker 运行时的命令路径 |
+| 变量                              | 默认值                                       | 说明                         |
+| --------------------------------- | -------------------------------------------- | ---------------------------- |
+| `DB_URL`                          | `jdbc:postgresql://localhost:55432/minshuku` | 数据库地址                   |
+| `DB_USERNAME`                     | `minshuku`                                   | 数据库用户                   |
+| `DB_PASSWORD`                     | 无                                           | 必填，数据库密码             |
+| `APP_CONTEXT_PATH`                | `/jukai-internal`                            | URL 前缀                     |
+| `APP_CHECKOUT_SYNC_CRON`          | `0 * * * * *`                                | 退房及当日到店房态同步 cron  |
+| `APP_TIME_ZONE`                   | `Asia/Tokyo`                                 | 定时任务时区                 |
+| `BACKUP_ENABLED`                  | `true`                                       | 是否启用每日自动备份         |
+| `BACKUP_CRON`                     | `0 0 2 * * *`                                | 每日备份 Spring 六段 cron    |
+| `BACKUP_DIRECTORY`                | `./backups`                                  | 宿主机上的指定备份文件夹     |
+| `PG_DUMP_COMMAND`                 | `pg_dump`                                    | 非 Docker 运行时的命令路径   |
+| `PUBLIC_BASE_URL`                 | 本地地址                                     | 取消链接使用的公开HTTPS地址  |
+| `SERVER_FORWARD_HEADERS_STRATEGY` | 本地`none`、服务器`native`                   | 仅信任服务器反向代理的访客IP |
+| `BOOKING_MAIL_ENABLED`            | `false`                                      | 是否发送预约状态邮件         |
+| `BOOKING_MAIL_FROM`               | 无                                           | 客人邮件发件地址             |
+| `BOOKING_ADMIN_MAIL`              | 无                                           | 管理员预约通知地址           |
+| `MAIL_HOST` / `MAIL_PORT`         | `localhost` / `1025`                         | SMTP服务器与端口             |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | 无                                           | SMTP账号与应用密码           |
+| `TURNSTILE_REQUIRED`              | 本地`false`、服务器`true`                    | 是否强制防机器人验证         |
+| `TURNSTILE_SITE_KEY`              | 无                                           | 浏览器端Turnstile站点密钥    |
+| `TURNSTILE_SECRET_KEY`            | 无                                           | 服务器端Turnstile私钥        |
 
 备份与恢复：
 
@@ -166,7 +181,7 @@ mvn verify
 
 ## 自有服务器部署
 
-准备 Linux 服务器、域名及指向服务器的 DNS 记录，在 `.env` 设置 `DB_PASSWORD`、`APP_DOMAIN` 和服务器备份目录后运行：
+准备 Linux 服务器、域名及指向服务器的 DNS 记录，在 `.env` 设置 `DB_PASSWORD`、`APP_DOMAIN`、`PUBLIC_BASE_URL`、Turnstile密钥和服务器备份目录后运行。需要邮件通知时，再填写SMTP账号并将 `BOOKING_MAIL_ENABLED` 改为 `true`：
 
 ```bash
 docker compose -f docker-compose.server.yml up -d --build

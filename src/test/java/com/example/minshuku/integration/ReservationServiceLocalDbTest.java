@@ -33,13 +33,15 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     private ReservationMapper reservationMapper;
     @Autowired
     private RoomMapper roomMapper;
+    private LocalDate futureStayDate;
 
     @BeforeEach
     void setUp() {
         resetTables();
         seedRooms();
+        futureStayDate = reservationService.currentDate().plusDays(10);
         var priceRule = TestSetData.priceRule("september");
-        insertPriceRule(bookableRoomId, priceRule.ruleName(), priceRule.startDate(), priceRule.endDate(),
+        insertPriceRule(bookableRoomId, priceRule.ruleName(), futureStayDate.minusDays(1), futureStayDate.plusDays(31),
                 priceRule.pricePerPerson(), priceRule.priority(), priceRule.active(), priceRule.note());
     }
 
@@ -52,7 +54,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_01 create Persists Reservation And Companions Normally")
     @Test
     void createPersistsReservationAndCompanionsNormally() {
-        Reservation reservation = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12),
+        Reservation reservation = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2),
                 2);
         reservation.setReservationForm("電話");
         reservation.setGuestEmail("guest@example.com");
@@ -78,10 +80,10 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_02 create Generates Compact Reservation No In Reservation Order")
     @Test
     void createGeneratesCompactReservationNoInReservationOrder() {
-        Reservation first = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 11), 1);
+        Reservation first = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(1), 1);
         reservationService.create(first, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
-        Reservation second = baseReservation(spareRoomId, LocalDate.of(2026, 9, 11), LocalDate.of(2026, 9, 12), 1);
+        Reservation second = baseReservation(spareRoomId, futureStayDate.plusDays(1), futureStayDate.plusDays(2), 1);
         reservationService.create(second, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
         assertThat(reservationMapper.findById(first.getId()).getReservationNo()).isEqualTo("R000001");
@@ -99,10 +101,10 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     void createDoesNotCycleReservationNoAfterLegacyUpperLimit() {
         jdbcTemplate.execute("ALTER SEQUENCE reservation_no_seq RESTART WITH 99999");
 
-        Reservation last = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 11), 1);
+        Reservation last = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(1), 1);
         reservationService.create(last, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
-        Reservation next = baseReservation(spareRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 11), 1);
+        Reservation next = baseReservation(spareRoomId, futureStayDate, futureStayDate.plusDays(1), 1);
         reservationService.create(next, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
         assertThat(reservationMapper.findById(last.getId()).getReservationNo()).isEqualTo("R099999");
@@ -152,11 +154,11 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_06 create Rejects Duplicate Reservation")
     @Test
     void createRejectsDuplicateReservation() {
-        Reservation first = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 2);
+        Reservation first = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2), 2);
         reservationService.create(first, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28),
                 List.of("080-0000-0000"));
         roomMapper.updateStatuses(bookableRoomId, "vacant", "cleaned");
-        Reservation duplicate = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 11), LocalDate.of(2026, 9, 13),
+        Reservation duplicate = baseReservation(bookableRoomId, futureStayDate.plusDays(1), futureStayDate.plusDays(3),
                 2);
         assertThatThrownBy(() -> reservationService.create(duplicate, false, List.of("鈴木花子"), List.of("スズキハナコ"),
                 List.of("女性"), List.of(26), List.of("080-1111-1111")))
@@ -173,7 +175,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_07 create Rejects Invalid Guest Phone")
     @Test
     void createRejectsInvalidGuestPhone() {
-        Reservation reservation = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12),
+        Reservation reservation = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2),
                 1);
         reservation.setGuestPhone("09000000000");
         assertThatThrownBy(() -> reservationService.create(reservation, false, List.of(), List.of(), List.of(),
@@ -191,8 +193,8 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_08 create Rejects Guest Count Over Ten")
     @Test
     void createRejectsGuestCountOverTen() {
-        Reservation reservation = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10),
-                LocalDate.of(2026, 9, 12), 11);
+        Reservation reservation = baseReservation(bookableRoomId, futureStayDate,
+                futureStayDate.plusDays(2), 11);
         assertThatThrownBy(() -> reservationService.create(reservation, false, List.of(), List.of(), List.of(),
                 List.of(), List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -231,7 +233,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_10 update Payment Status Changes Stored Value")
     @Test
     void updatePaymentStatusChangesStoredValue() {
-        Reservation reservation = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12),
+        Reservation reservation = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2),
                 2);
         reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28),
                 List.of("080-0000-0000"));
@@ -248,7 +250,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_11 cancel Moves Reservation And Room Back To Vacant Cleaned")
     @Test
     void cancelMovesReservationAndRoomBackToVacantCleaned() {
-        Reservation reservation = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12),
+        Reservation reservation = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2),
                 2);
         reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28),
                 List.of("080-0000-0000"));
@@ -269,7 +271,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_12 delete Cancelled Reservation Removes Row Normally")
     @Test
     void deleteCancelledReservationRemovesRowNormally() {
-        Reservation reservation = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12),
+        Reservation reservation = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2),
                 2);
         reservationService.create(reservation, false, List.of("佐藤花子"), List.of("サトウハナコ"), List.of("女性"), List.of(28),
                 List.of("080-0000-0000"));
@@ -340,10 +342,10 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_15 query Reservation Pages Compares Expected And Actual Results")
     @Test
     void queryReservationPagesComparesExpectedAndActualResults() {
-        Reservation booked = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 1);
+        Reservation booked = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2), 1);
         reservationService.create(booked, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
-        Reservation cancelled = baseReservation(spareRoomId, LocalDate.of(2026, 9, 13), LocalDate.of(2026, 9, 14), 1);
+        Reservation cancelled = baseReservation(spareRoomId, futureStayDate.plusDays(3), futureStayDate.plusDays(4), 1);
         reservationService.create(cancelled, false, List.of(), List.of(), List.of(), List.of(), List.of());
         reservationService.cancel(cancelled.getId());
 
@@ -387,7 +389,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_15 query Reservation Page Returns Empty For Out Of Range Data")
     @Test
     void queryReservationPageReturnsEmptyForOutOfRangeData() {
-        Reservation booked = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 1);
+        Reservation booked = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2), 1);
         reservationService.create(booked, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
         List<String> actualStatuses = reservationService.findRecentPage(99, 5).stream()
@@ -406,7 +408,7 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @DisplayName("test_16 create Reservation Rejects Guest Count Over Capacity As Abnormal Case")
     @Test
     void createReservationRejectsGuestCountOverCapacityAsAbnormalCase() {
-        Reservation reservation = baseReservation(bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12),
+        Reservation reservation = baseReservation(bookableRoomId, futureStayDate, futureStayDate.plusDays(2),
                 3);
         String actualMessage = null;
         try {
@@ -429,11 +431,11 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
     @Test
     void createAllowsNonOverlappingFutureReservationsForSameRoom() {
         Reservation first = baseReservation(
-                bookableRoomId, LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12), 1);
+                bookableRoomId, futureStayDate, futureStayDate.plusDays(2), 1);
         reservationService.create(first, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
         Reservation second = baseReservation(
-                bookableRoomId, LocalDate.of(2026, 9, 12), LocalDate.of(2026, 9, 14), 1);
+                bookableRoomId, futureStayDate.plusDays(2), futureStayDate.plusDays(4), 1);
         reservationService.create(second, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
         assertThat(reservationService.countBooked()).isEqualTo(2);
@@ -483,6 +485,63 @@ class ReservationServiceLocalDbTest extends LocalDbTestSupport {
         reservationService.syncDueCheckouts();
 
         assertThat(reservationMapper.findById(dueReservationId).getReservationStatus()).isEqualTo("checked_out");
+        Room room = roomMapper.findById(spareRoomId);
+        assertThat(room.getOccupancyStatus()).isEqualTo("reserved");
+        assertThat(room.getCleaningStatus()).isEqualTo("needs_cleaning");
+
+        reservationService.updateCheckoutCleaningStatus(dueReservationId, "cleaned");
+
+        Room cleanedRoom = roomMapper.findById(spareRoomId);
+        assertThat(cleanedRoom.getOccupancyStatus()).isEqualTo("reserved");
+        assertThat(cleanedRoom.getCleaningStatus()).isEqualTo("cleaned");
+    }
+
+    @DisplayName("test_19 find Available Rooms Filters By Dates Capacity And Current State")
+    @Test
+    void findAvailableRoomsFiltersByDatesCapacityAndCurrentState() {
+        LocalDate today = reservationService.currentDate();
+        Reservation existing = baseReservation(bookableRoomId, today.plusDays(2), today.plusDays(4), 1);
+        reservationService.create(existing, false, List.of(), List.of(), List.of(), List.of(), List.of());
+
+        List<Integer> futureRoomIds = reservationService
+                .findAvailableRooms(today.plusDays(3), today.plusDays(5), 3)
+                .stream()
+                .map(Room::getId)
+                .toList();
+        assertThat(futureRoomIds).containsExactly(occupiedRoomId, spareRoomId);
+
+        List<Integer> todayRoomIds = reservationService
+                .findAvailableRooms(today, today.plusDays(1), 1)
+                .stream()
+                .map(Room::getId)
+                .toList();
+        assertThat(todayRoomIds).containsExactly(bookableRoomId, spareRoomId, ruleRoomId);
+    }
+
+    @DisplayName("test_20 sync Today Arrivals Moves Vacant Room To Reserved")
+    @Test
+    void syncTodayArrivalsMovesVacantRoomToReserved() {
+        LocalDate today = reservationService.currentDate();
+        insertReservation(
+                spareRoomId,
+                "R000001",
+                today,
+                today.plusDays(2),
+                "山田太郎",
+                "ヤマダタロウ",
+                "男性",
+                30,
+                "090-0000-0000",
+                "guest@example.com",
+                1,
+                "公式",
+                "unpaid",
+                "booked",
+                java.math.BigDecimal.valueOf(24000),
+                "当日到着同期");
+
+        reservationService.syncTodayArrivals();
+
         Room room = roomMapper.findById(spareRoomId);
         assertThat(room.getOccupancyStatus()).isEqualTo("reserved");
         assertThat(room.getCleaningStatus()).isEqualTo("cleaned");

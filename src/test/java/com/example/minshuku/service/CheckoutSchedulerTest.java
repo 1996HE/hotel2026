@@ -25,7 +25,7 @@ class CheckoutSchedulerTest {
      * テストケース名：test_01 scheduled Sync Delegates To Reservation Service
      * テスト条件：ReservationService を mock 化した CheckoutScheduler を準備する。
      * テスト要望：定期処理の実行時に期限到来チェックアウト同期を1回委譲すること。
-     * テスト結果：ReservationService.syncDueCheckouts が1回呼び出されること。
+    * テスト結果：退房同期と当日到着同期が各1回呼び出されること。
      */
     @DisplayName("test_01 scheduled Sync Delegates To Reservation Service")
     @Test
@@ -33,5 +33,6 @@ class CheckoutSchedulerTest {
         checkoutScheduler.syncDueCheckouts();
 
         verify(reservationService).syncDueCheckouts();
+        verify(reservationService).syncTodayArrivals();
     }
 }

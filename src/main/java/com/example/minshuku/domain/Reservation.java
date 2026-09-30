@@ -13,6 +13,7 @@ public class Reservation {
     private String reservationNo;
     private Integer roomId;
     private Integer customerId;
+    private Integer bookingRequestId;
 
     // 一覧表示用に客室マスタから結合して取得する表示項目。
     private String roomNumber;
@@ -29,6 +30,7 @@ public class Reservation {
     private String guestKana;
     private String guestGender;
     private Integer guestAge;
+    private String guestCategory;
     private String guestPhone;
     private String guestEmail;
     private Integer guestCount;
@@ -42,6 +44,9 @@ public class Reservation {
     // 登録時点で確定した宿泊金額と業務メモ。
     private BigDecimal totalAmount;
     private String note;
+    private String cancellationReason;
+    private String cancelledBy;
+    private OffsetDateTime cancelledAt;
 
     // 同行者明細を一覧表示向けに集約したテキスト。
     private String companionSummary;
@@ -80,6 +85,14 @@ public class Reservation {
 
     public void setCustomerId(Integer customerId) {
         this.customerId = customerId;
+    }
+
+    public Integer getBookingRequestId() {
+        return bookingRequestId;
+    }
+
+    public void setBookingRequestId(Integer bookingRequestId) {
+        this.bookingRequestId = bookingRequestId;
     }
 
     public String getRoomNumber() {
@@ -162,6 +175,14 @@ public class Reservation {
         this.guestAge = guestAge;
     }
 
+    public String getGuestCategory() {
+        return guestCategory;
+    }
+
+    public void setGuestCategory(String guestCategory) {
+        this.guestCategory = guestCategory;
+    }
+
     public String getGuestPhone() {
         return guestPhone;
     }
@@ -215,6 +236,7 @@ public class Reservation {
      */
     public String getReservationStatusLabel() {
         return switch (reservationStatus) {
+            case "pending" -> "確認待ち";
             case "cancelled" -> "取消済";
             case "checked_in" -> "滞在中";
             case "checked_out" -> "チェックアウト完了待清掃";
@@ -256,6 +278,30 @@ public class Reservation {
 
     public void setNote(String note) {
         this.note = note;
+    }
+
+    public String getCancellationReason() {
+        return cancellationReason;
+    }
+
+    public void setCancellationReason(String cancellationReason) {
+        this.cancellationReason = cancellationReason;
+    }
+
+    public String getCancelledBy() {
+        return cancelledBy;
+    }
+
+    public void setCancelledBy(String cancelledBy) {
+        this.cancelledBy = cancelledBy;
+    }
+
+    public OffsetDateTime getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public void setCancelledAt(OffsetDateTime cancelledAt) {
+        this.cancelledAt = cancelledAt;
     }
 
     public String getCompanionSummary() {

@@ -44,17 +44,19 @@ class BusinessModulesLocalDbTest extends LocalDbTestSupport {
     private ReportService reportService;
     @Autowired
     private AdminUserService adminUserService;
+    private LocalDate stayStart;
 
     @BeforeEach
     void setUp() {
         resetTables();
         seedRooms();
+        stayStart = reservationService.currentDate().plusDays(10);
     }
 
     @Test
     @DisplayName("test_01 予約から顧客を作成し宿泊履歴を取得できる")
     void reservationCreatesCustomerAndStayHistory() {
-        Reservation reservation = reservation(LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12));
+        Reservation reservation = reservation(stayStart, stayStart.plusDays(2));
         reservationService.create(reservation, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
         Customer customer = customerService.search("山田").get(0);
@@ -67,7 +69,7 @@ class BusinessModulesLocalDbTest extends LocalDbTestSupport {
     @Test
     @DisplayName("test_02 一件の入金と部分返金を更新できる")
     void recordsOnePaymentAndPartialRefund() {
-        Reservation reservation = reservation(LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12));
+        Reservation reservation = reservation(stayStart, stayStart.plusDays(2));
         reservationService.create(reservation, false, List.of(), List.of(), List.of(), List.of(), List.of());
 
         financeService.recordPayment(reservation.getId(), new BigDecimal("24000"), "cash", null);
@@ -86,14 +88,12 @@ class BusinessModulesLocalDbTest extends LocalDbTestSupport {
     @Test
     @DisplayName("test_03 日中両言語の営業Excelを出力できる")
     void createsJapaneseAndChineseExcelReports() throws Exception {
-        Reservation reservation = reservation(LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 12));
+        Reservation reservation = reservation(stayStart, stayStart.plusDays(2));
         reservationService.create(reservation, false, List.of(), List.of(), List.of(), List.of(), List.of());
         financeService.recordPayment(reservation.getId(), new BigDecimal("24000"), "card", null);
 
-        byte[] japanese = reportService.createBusinessWorkbook(
-                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), "ja");
-        byte[] chinese = reportService.createBusinessWorkbook(
-                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), "zh");
+        byte[] japanese = reportService.createBusinessWorkbook(stayStart.minusDays(1), stayStart.plusDays(3), "ja");
+        byte[] chinese = reportService.createBusinessWorkbook(stayStart.minusDays(1), stayStart.plusDays(3), "zh");
 
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(japanese))) {
             assertThat(workbook.getSheetName(0)).isEqualTo("月次営業集計");

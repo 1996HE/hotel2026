@@ -4,11 +4,14 @@ import com.example.minshuku.domain.Reservation;
 import com.example.minshuku.domain.Room;
 import com.example.minshuku.domain.RoomPriceRule;
 import com.example.minshuku.service.ReservationService;
+import com.example.minshuku.service.InventoryConflictException;
 import com.example.minshuku.service.RoomPriceRuleService;
 import com.example.minshuku.service.RoomService;
 import java.time.LocalDate;
+import java.security.Principal;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -159,6 +162,14 @@ public class ApiController {
         return new MessageResponse("予約を登録しました。");
     }
 
+    @GetMapping("/reservations/available-rooms")
+    public List<Room> availableRooms(
+            @RequestParam LocalDate checkInDate,
+            @RequestParam LocalDate checkOutDate,
+            @RequestParam Integer guestCount) {
+        return reservationService.findAvailableRooms(checkInDate, checkOutDate, guestCount);
+    }
+
     @PutMapping("/reservations/{id}")
     public MessageResponse updateReservation(@PathVariable Integer id, @RequestBody ReservationCreateRequest request) {
         reservationService.update(
@@ -192,8 +203,18 @@ public class ApiController {
     }
 
     @PostMapping("/reservations/{id}/cancel")
-    public MessageResponse cancelReservation(@PathVariable Integer id) {
-        reservationService.cancel(id);
+    public MessageResponse cancelReservation(
+            @PathVariable Integer id,
+            @RequestBody(required = false) ReservationCancellationRequest request,
+            Principal principal) {
+        if (request != null && request.reason() != null && !request.reason().isBlank()) {
+            reservationService.cancelWithReason(
+                    id,
+                    request.reason(),
+                    principal == null || principal.getName() == null ? "system" : principal.getName());
+        } else {
+            reservationService.cancel(id);
+        }
         return new MessageResponse("予約をキャンセルしました。");
     }
 
@@ -228,6 +249,14 @@ public class ApiController {
     public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
         // サービス層の業務エラーを、React が表示しやすい JSON エラーへ変換する。
         return new ErrorResponse(ex.getMessage());
+    }
+
+    @ExceptionHandler({InventoryConflictException.class, DataIntegrityViolationException.class})
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleInventoryConflict(RuntimeException ex) {
+        return new ErrorResponse(ex instanceof InventoryConflictException
+                ? ex.getMessage()
+                : "在庫が変更されました。再読み込みしてください。");
     }
 
     private <T> PageResponse<T> firstPage(List<T> items, int totalCount, int pageSize) {
@@ -319,6 +348,10 @@ public class ApiController {
      * 予約状態更新リクエスト。
      */
     public record ReservationStatusRequest(String reservationStatus) {
+    }
+
+    /** Reasoned admin cancellation request used by the room calendar. */
+    public record ReservationCancellationRequest(String reason) {
     }
 
     /**

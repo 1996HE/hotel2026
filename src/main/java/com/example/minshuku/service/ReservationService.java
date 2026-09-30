@@ -117,6 +117,13 @@ public class ReservationService {
         return reservationMapper.countCheckedOut();
     }
 
+    /** 指定期間と人数で予約可能な客室だけを予約フォームへ返す。 */
+    @Transactional(readOnly = true)
+    public List<Room> findAvailableRooms(LocalDate checkInDate, LocalDate checkOutDate, Integer guestCount) {
+        validateAvailabilitySearch(checkInDate, checkOutDate, guestCount);
+        return roomMapper.findAvailableForStay(checkInDate, checkOutDate, guestCount, currentDate());
+    }
+
     @Transactional
     public void syncDueCheckouts() {
         // 予約日時点で宿泊終了に達している予約を回収し、客室状態を予約業務側で同期する。
@@ -125,6 +132,22 @@ public class ReservationService {
             reservationMapper.markCheckedOut(dueReservation.getId());
             // 同日に次の宿泊が始まっている場合を考慮し、現在日の予約状況から客室状態を再計算する。
             updateRoomAfterReservationRelease(dueReservation, "needs_cleaning");
+        }
+    }
+
+    /** 入室日を迎えた将来予約を、現在の客室状態へ自動反映する。 */
+    @Transactional
+    public void syncTodayArrivals() {
+        LocalDate today = currentDate();
+        for (Reservation arrival : reservationMapper.findBookedArrivals(today)) {
+            Room room = roomMapper.findByIdForUpdate(arrival.getRoomId());
+            if (room == null || !Boolean.TRUE.equals(room.getActive())) {
+                continue;
+            }
+            // 手動で滞在中にした客室は上書きしない。清掃状態は現況を維持する。
+            if (!"occupied".equals(room.getOccupancyStatus())) {
+                roomMapper.updateStatuses(room.getId(), "reserved", room.getCleaningStatus());
+            }
         }
     }
 
@@ -215,6 +238,7 @@ public class ReservationService {
                 reservation.getRoomId(), reservation.getCheckInDate(), reservation.getCheckOutDate(), id) > 0) {
             throw new IllegalArgumentException("指定期間はすでに予約されています。");
         }
+        validateNoInventoryBlock(reservation);
         customerService.resolveForReservation(reservation);
         reservation.setTotalAmount(calculateTotalAmount(reservation, room));
         if (reservationMapper.update(reservation) == 0)
@@ -309,6 +333,7 @@ public class ReservationService {
                     reservation.getId()) > 0) {
                 throw new IllegalArgumentException("指定期間はすでに予約されています。");
             }
+            validateNoInventoryBlock(reservation);
         }
 
         if (reservationMapper.updateReservationStatus(id, reservationStatus) == 0) {
@@ -337,7 +362,8 @@ public class ReservationService {
             throw new IllegalArgumentException("チェックアウト済み予約のみ清掃状態を更新できます。");
         }
         requireAllowed(cleaningStatus, CLEANING_STATUSES, MESSAGE_INVALID_CLEANING_STATUS);
-        roomMapper.updateStatuses(reservation.getRoomId(), "vacant", cleaningStatus);
+        // 同日に後続予約や滞在中予約がある場合は、その予約に合わせた占有状態を維持する。
+        updateRoomAfterReservationRelease(reservation, cleaningStatus);
     }
 
     @Transactional
@@ -349,11 +375,41 @@ public class ReservationService {
         if (!"booked".equals(reservation.getReservationStatus())) {
             throw new IllegalArgumentException("予約中の予約のみ取消できます。");
         }
+        if (reservation.getBookingRequestId() != null) {
+            throw new IllegalArgumentException("複数客室のWeb予約は申請単位で取消してください。");
+        }
         if (reservationMapper.cancel(id) == 0) {
             throw new IllegalArgumentException("予約が見つかりません。");
         }
         if (!reservation.getCheckInDate().isAfter(currentDate())) {
             // 当日以前の予約だけが現在の客室状態に影響する。
+            updateRoomAfterReservationRelease(reservation, "cleaned");
+        }
+    }
+
+    /** Calendar/admin cancellation that persists the mandatory reason and actor. */
+    @Transactional
+    public void cancelWithReason(Integer id, String reason, String actor) {
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("取消理由を入力してください。");
+        }
+        if (reason.trim().length() > 1000) {
+            throw new IllegalArgumentException("取消理由は1000文字以内で入力してください。");
+        }
+        Reservation reservation = reservationMapper.findByIdForUpdate(id);
+        if (reservation == null) {
+            throw new IllegalArgumentException("予約が見つかりません。");
+        }
+        if (!"booked".equals(reservation.getReservationStatus())) {
+            throw new IllegalArgumentException("予約中の予約のみ取消できます。");
+        }
+        if (reservation.getBookingRequestId() != null) {
+            throw new IllegalArgumentException("Web予約は申請単位で取消してください。");
+        }
+        if (reservationMapper.cancelWithReason(id, "booked", reason.trim(), actor) == 0) {
+            throw new InventoryConflictException("予約状態が変更されました。再読み込みしてください。");
+        }
+        if (!reservation.getCheckInDate().isAfter(currentDate())) {
             updateRoomAfterReservationRelease(reservation, "cleaned");
         }
     }
@@ -393,15 +449,39 @@ public class ReservationService {
     }
 
     private void updateRoomAfterReservationRelease(Reservation reservation, String cleaningStatusWhenVacant) {
-        int otherBookedReservations = reservationMapper.countOtherBookedByRoomIdOnDate(
+        Room room = roomMapper.findByIdForUpdate(reservation.getRoomId());
+        if (room == null) {
+            return;
+        }
+        List<String> activeStatuses = reservationMapper.findOtherActiveStatusesByRoomIdOnDate(
                 reservation.getRoomId(),
                 reservation.getId(),
                 currentDate());
-        if (otherBookedReservations > 0) {
-            roomMapper.updateStatuses(reservation.getRoomId(), "reserved", "cleaned");
+        if (activeStatuses.contains("checked_in")) {
+            // 別の宿泊者が滞在中なら、過去予約側の清掃操作で現在の清掃状態を上書きしない。
+            roomMapper.updateStatuses(reservation.getRoomId(), "occupied", room.getCleaningStatus());
+            return;
+        }
+        if (activeStatuses.contains("booked")) {
+            roomMapper.updateStatuses(reservation.getRoomId(), "reserved", cleaningStatusWhenVacant);
             return;
         }
         roomMapper.updateStatuses(reservation.getRoomId(), "vacant", cleaningStatusWhenVacant);
+    }
+
+    private void validateAvailabilitySearch(LocalDate checkInDate, LocalDate checkOutDate, Integer guestCount) {
+        if (checkInDate == null || checkOutDate == null) {
+            throw new IllegalArgumentException("宿泊日を入力してください。");
+        }
+        if (checkInDate.isBefore(currentDate())) {
+            throw new IllegalArgumentException(MESSAGE_PAST_CHECK_IN);
+        }
+        if (!checkInDate.isBefore(checkOutDate)) {
+            throw new IllegalArgumentException(MESSAGE_INVALID_STAY_RANGE);
+        }
+        if (guestCount == null || guestCount < 1 || guestCount > MAX_GUEST_COUNT) {
+            throw new IllegalArgumentException("宿泊人数は1名以上10名以下にしてください。");
+        }
     }
 
     private Reservation requireReservation(Integer id) {
@@ -510,6 +590,14 @@ public class ReservationService {
 
         if (overlaps > 0) {
             throw new IllegalArgumentException("指定期間はすでに予約されています。");
+        }
+        validateNoInventoryBlock(reservation);
+    }
+
+    private void validateNoInventoryBlock(Reservation reservation) {
+        if (roomMapper.countOverlappingInventoryBlocks(
+                reservation.getRoomId(), reservation.getCheckInDate(), reservation.getCheckOutDate()) > 0) {
+            throw new InventoryConflictException("指定期間は停售またはメンテナンス中です。");
         }
     }
 

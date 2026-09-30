@@ -1,6 +1,7 @@
 package com.example.minshuku.mapper;
 
 import com.example.minshuku.domain.Reservation;
+import com.example.minshuku.domain.RoomCalendarStay;
 import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -73,10 +74,27 @@ public interface ReservationMapper {
      */
     List<Reservation> findDueCheckouts();
 
+    /** 入室日を迎え、客室を予約済みに同期する対象予約を取得する。 */
+    List<Reservation> findBookedArrivals(@Param("stayDate") LocalDate stayDate);
+
     /**
      * 状態更新や取消の対象予約を取得する。
      */
     Reservation findById(@Param("id") Integer id);
+
+    /** Calendar projection for any non-cancelled stay intersecting the month. */
+    List<RoomCalendarStay> findCalendarStays(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDateExclusive") LocalDate endDateExclusive);
+
+    /** Locks one reservation before a state transition. */
+    Reservation findByIdForUpdate(@Param("id") Integer id);
+
+    int cancelWithReason(
+            @Param("id") Integer id,
+            @Param("expectedStatus") String expectedStatus,
+            @Param("reason") String reason,
+            @Param("actor") String actor);
 
     /**
      * 検証済みの予約本体を登録する。
@@ -112,6 +130,14 @@ public interface ReservationMapper {
      * 同一客室に残る他の予約中件数を取得し、客室状態の巻き戻し可否に使う。
      */
     int countOtherBookedByRoomIdOnDate(
+            @Param("roomId") Integer roomId,
+            @Param("excludedReservationId") Integer excludedReservationId,
+            @Param("stayDate") LocalDate stayDate);
+
+    /**
+     * 対象予約自身を除き、指定日に同じ客室を使用する有効予約の状態を取得する。
+     */
+    List<String> findOtherActiveStatusesByRoomIdOnDate(
             @Param("roomId") Integer roomId,
             @Param("excludedReservationId") Integer excludedReservationId,
             @Param("stayDate") LocalDate stayDate);

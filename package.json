@@ -7,11 +7,15 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "esbuild src/main/frontend/App.jsx --bundle --minify --format=iife --global-name=MinshukuApp --outfile=src/main/resources/static/js/app.js",
+    "build": "npm run build:admin && npm run build:guest",
+    "build:admin": "esbuild src/main/frontend/App.jsx --bundle --minify --format=iife --global-name=MinshukuApp --outfile=src/main/resources/static/js/app.js",
+    "build:guest": "esbuild src/main/frontend/GuestApp.jsx --bundle --minify --format=iife --global-name=GuestSite --outfile=src/main/resources/static/js/guest.js",
+    "test:frontend": "vitest run",
+    "audit:security": "npm audit --audit-level=high",
     "lint": "eslint .",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "check": "npm run format:check && npm run lint && npm run build"
+    "check": "npm run format:check && npm run lint && npm run test:frontend && npm run audit:security && npm run build"
   },
   "repository": {
     "type": "git",
@@ -26,6 +30,7 @@
   },
   "homepage": "https://github.com/1996HE/hotel2026#readme",
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "esbuild": "^0.28.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
@@ -36,6 +41,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "vitest": "^5.0.2"
   }
 }
